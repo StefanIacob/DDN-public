@@ -117,7 +117,6 @@ def createNARMA10(length=10000):
 def createNARMA30(length=10000):
     return createNARMA(length=length, system_order=30, coef=[.2, .04, 1.5, .001])
 
-
 def eval_candidate_lag_gridsearch_NARMA(network, train_data, val_data, warmup=400,
                                         lag_grid=range(0, 15), alphas=[10e-14, 10e-13, 10e-12]):
     assert np.all(np.array(lag_grid) >= 0), 'No negative lag allowed'
@@ -167,7 +166,16 @@ def eval_candidate_lag_gridsearch_NARMA(network, train_data, val_data, warmup=40
         train_performance_per_lag.append(train_performance)
         model_per_lag[lag] = model
 
+
+
     return train_performance_per_lag, val_performance_per_lag, model_per_lag
+
+# TODO:
+def eval_candidate_lag_gridsearch_NARMA_multitask(network, input_data, train_labels, val_labels, warmup=400,
+                                        lag_grid=range(0, 15), alphas=[10e-14, 10e-13, 10e-12]):
+    assert np.all(np.array(lag_grid) >= 0), 'No negative lag allowed'
+
+    pass
 
 
 def eval_candidate_signal_gen(network, train_data, val_data, error_margin=.1, max_it_val=500, warmup=400,
@@ -403,7 +411,7 @@ def eval_candidate_signal_gen_horizon(network, n_sequences_unsupervised,
         j = 0
         feedback_in = start_input_val
         label_variance = np.var(labels_val)
-
+        error_hist = []
         while error <= error_margin and j <= max_it_val:
             feedback_in = np.ones((len(network.neurons_in),)) * feedback_in
             network.update_step(feedback_in)
@@ -411,6 +419,7 @@ def eval_candidate_signal_gen_horizon(network, n_sequences_unsupervised,
             feedback_in = model.predict(output)[0][0]
             error = single_sample_NRSE(feedback_in, labels_val[j, 0],
                                        label_variance)
+            error_hist.append(error)
             j += 1
 
         prediction_steps_across_sequences.append(j)
@@ -964,6 +973,17 @@ def genome_memory_capacity(hyperparameters, start_net, max_delay, sequence_lengt
     return total_m_cap
 
 
+def genome_memory_capacity_evolvable(hyperparameters, start_net, max_delay, sequence_length, z_function=None, warmup_time=400,
+                           alphas=[1, 10, 100], genome_reps=5, eval_reps=5):
+    total_m_cap = []
+    for i in range(genome_reps):
+        net = start_net.get_new_evolvable_population_from_serialized(hyperparameters)
+        m_cap = network_memory_capacity(net, max_delay, sequence_length, z_function, warmup_time, alphas, eval_reps)
+        total_m_cap.append(m_cap)
+
+    return total_m_cap
+
+
 def network_memory_capacity(network, max_delay, sequence_length, z_function=None, warmup_time=400, alphas=[1, 10, 100], reps=5):
     total_m_cap = []
     for i in range(reps):
@@ -1006,7 +1026,32 @@ def memory_capacity(network, max_delay, sequence_length, z_function=None, warmup
         m_caps.append(MC)
 
     return m_caps
-#
+
+
+def act_dimensionality(network_activity, variance_threshold=.95):
+    _, s, _ = np.linalg.svd(network_activity)
+    dim = 0
+    var_explained = 0
+    while var_explained < variance_threshold:
+        var_explained = np.sum(s[:dim + 1]) / np.sum(s)
+        dim += 1
+    return dim
+
+def genotype_dimensionality(network, net_input, measuring_reps, variance_threshold=.95, warmup=400):
+    dims = []
+    serialized_parameters = network.get_serialized_network_parameters()
+
+    for rep in range(measuring_reps):
+        # resample_network
+        network = network.get_new_evolvable_population_from_serialized(serialized_parameters)
+        sim = NetworkSimulator(network)
+        sim.warmup(net_input[:warmup])
+        net_act = sim.get_network_data(net_input[warmup:])
+        dim = act_dimensionality(net_act, variance_threshold=variance_threshold)
+        dims.append(dim)
+
+    return dims
+
 # def baseline2DDN(baseline_net):
 #     k = evolved_bl_net.k
 #

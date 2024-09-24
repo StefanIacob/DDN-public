@@ -176,7 +176,7 @@ class NetworkSimulator(object):
             gui.update_a()
 
     def visualize(self, input_data):
-        gui = DistDelayGUI(self.network)
+        gui = DistDelayGUI(self.network, use_ntypes=False)
         j = 0
 
         for i, input in enumerate(input_data):

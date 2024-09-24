@@ -5,7 +5,72 @@ from utils import eval_candidate_lag_gridsearch_NARMA, eval_candidate_signal_gen
     eval_candidate_signal_gen_multiple_random_sequences_adaptive_budget, eval_candidate_custom_data_signal_gen
 import pickle
 import os
+import copy
 from reservoirpy import datasets
+def cmaes_alg_gma_pop_timeseries_prediction_old(start_net, train_data, val_data, max_it, pop_size,
+                                                eval_reps, std, alphas, lag_grid=np.array(range(0, 15)), save_every=1,
+                                                dir='es_results', name='cma_es_gmm_test'):
+
+    params = start_net.get_serialized_parameters()
+    opts = cma.CMAOptions()
+    opts['maxiter'] = max_it
+    opts['popsize'] = pop_size
+    es = cma.CMAEvolutionStrategy(params, std, opts)
+    param_hist = np.zeros((max_it, pop_size, len(params)))
+    val_hist = np.zeros((max_it, pop_size, eval_reps, len(lag_grid)))
+    std_hist = np.zeros((max_it,))
+    gen = 0
+
+    def save(net):
+        data = {
+            'validation performance': val_hist,
+            'parameters': param_hist,
+            'evolutionary strategy': es,
+            'cma stds': std_hist,
+            'example net': net,
+            'train data': train_data,
+            'validation data': val_data,
+            'alphas': alphas,
+            'start net': start_net
+        }
+        file = open(dir + '/' + name + '.p', "wb")
+        pickle.dump(data, file)
+        file.close()
+
+    while not es.stop():
+        candidate_solutions = es.ask()
+        for c, cand in enumerate(candidate_solutions):
+
+            param_hist[gen, c, :] = cand
+            std_hist[gen] = es.sigma
+
+            for rep in range(eval_reps):
+                # Make sure to resample (i.e. re-generate) a network for every repetition
+                new_net = start_net.get_new_network_from_serialized(cand)
+                _, val_scores_lags, _ = eval_candidate_lag_gridsearch_NARMA(new_net,
+                                                                              train_data,
+                                                                              val_data,
+                                                                              lag_grid=lag_grid,
+                                                                              alphas=alphas)
+                val_hist[gen, c, rep, :] = val_scores_lags
+
+        # save every m iterations
+        if (gen + 1) % save_every == 0:
+            save(new_net)
+
+        val_scores = val_hist[gen, :, :, :]
+        best_lags = np.argmin(val_scores, -1)
+        best_scores = np.zeros((pop_size, eval_reps))
+        for i in range(pop_size):
+            for j in range(eval_reps):
+                best_scores[i, j] = val_scores[i, j, best_lags[i, j]]
+
+        best_scores = np.mean(best_scores, 1)
+        print(best_scores)
+        es.tell(candidate_solutions, best_scores)
+        print('Gen ', gen)
+        gen += 1
+    es.result_pretty()
 
 
 def cmaes_alg_gma_pop_timeseries_prediction(start_net, train_data, val_data, exp_config, save_every=1, dir='es_results',
@@ -383,6 +448,93 @@ def cmaes_alg_gma_pop_signal_gen_adaptive(start_net, n_unsupervised,
         print('Gen ', gen)
         gen += 1
     es.result_pretty()
+
+
+
+def cmaes_evolvable(start_net, train_data, val_data, max_it, pop_size, eval_reps=5, lag_grid=range(0, 15),
+                    std = 0.3, save_every = 1, dir = 'es_results', name = 'cma_es_gmm_test',
+                    alphas = [10e-14, 10e-13, 10e-12]):
+    # order: mix, mu_x, mu_y, var_x, var_y, corr_xy, conn, weight_scaling, bias_scaling, decay
+
+    params = start_net.get_serialized_network_parameters()
+    opts = cma.CMAOptions()
+    opts['maxiter'] = max_it
+    opts['popsize'] = pop_size
+    es = cma.CMAEvolutionStrategy(params, std, opts)
+
+    param_hist = np.zeros((max_it, pop_size, len(params)))
+    val_hist = np.zeros((max_it, pop_size, eval_reps, len(lag_grid)))
+    std_hist = np.zeros((max_it,))
+
+    gen = 0
+
+    def save(net):
+        data = {
+            'validation performance': val_hist,
+            'parameters': param_hist,
+            'evolutionary strategy': es,
+            'cma stds': std_hist,
+            'example net': net,
+            'train data': train_data,
+            'validation data': val_data,
+            'alphas': alphas,
+            'start net': copy.deepcopy(start_net)
+        }
+        file = open(dir + '/' + name + '.p', "wb")
+        pickle.dump(data, file)
+        file.close()
+
+    def save_net(data, gen, c):
+        net_dir = dir + '/' + name + '_nets/gen_' + str(gen)
+        if not os.path.exists(net_dir):
+            os.makedirs(net_dir)
+        nets_file = dir + '/' + name + '_nets/gen_' + str(gen) + '/' + str(c) + '.p'
+        nets_file = open(nets_file, "wb")
+        pickle.dump(data, nets_file)
+        nets_file.close()
+
+    while not es.stop():
+        candidate_solutions = es.ask()
+        for c, cand in enumerate(candidate_solutions):
+            # train_score_cand = np.zeros((nr_of_evals, len(lag_grid)))
+            # val_score_cand = np.zeros((nr_of_evals, len(lag_grid)))
+
+            param_hist[gen, c, :] = cand
+            std_hist[gen] = es.sigma
+
+            for rep in range(eval_reps):
+                # Make sure to resample (i.e. re-generate) a network for every repetition
+                new_net = start_net.get_new_evolvable_population_from_serialized(cand)
+                _, val_scores_lags, _ = eval_candidate_lag_gridsearch_NARMA(new_net,
+                                                                                      train_data,
+                                                                                      val_data,
+                                                                                      lag_grid=lag_grid,
+                                                                                      alphas=alphas)
+                val_hist[gen, c, rep, :] = val_scores_lags
+
+                # net_models[rep] = {'net': new_net, 'regression models': models_lags}
+
+            # save_net(net_models, gen, c)
+
+        # save every m iterations
+        if (gen + 1) % save_every == 0:
+            save(new_net)
+
+        val_scores = val_hist[gen, :, :, :]
+        best_lags = np.argmin(val_scores, -1)
+        best_scores = np.zeros((pop_size, eval_reps))
+        for i in range(pop_size):
+            for j in range(eval_reps):
+                best_scores[i, j] = val_scores[i, j, best_lags[i, j]]
+
+        best_scores = np.mean(best_scores, 1)
+        print(best_scores)
+        es.tell(candidate_solutions, best_scores)
+        print('Gen ', gen)
+        gen += 1
+    es.result_pretty()
+
+
 
 def cmaes_signal_gen_adaptive_custom_datasets(start_net, unsupervised, supervised, validation, pop_size, max_it=99, eval_reps=5,
                                               std=0.3, save_every=1, dir='es_results', name='cma_es_gmm_test',

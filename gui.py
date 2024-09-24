@@ -45,7 +45,7 @@ class DistDelayGUI(object):
     Animation for the distance-based delay network
     """
 
-    def __init__(self, dist_delay_net):
+    def __init__(self, dist_delay_net, use_ntypes=False):
         self.DDN = dist_delay_net
 
         x_range = self.DDN.x_range
@@ -56,6 +56,7 @@ class DistDelayGUI(object):
 
         self.spacing = window_width/width
         self.dot_size = 5
+        self.use_ntypes = use_ntypes
         self.w = int(window_width + 2*self.dot_size + 2)
         self.h = int(window_width * height/width + 2*self.dot_size + 2)
         self.root = tk.Tk()
@@ -219,7 +220,17 @@ class DistDelayGUI(object):
             array.
         """
         coordinates = self.grid
-        act = self.DDN.A[:, 0] * self.DDN.n_type
+        act = self.DDN.A[:, 0] #* self.DDN.ex_in
+        if self.use_ntypes:
+            act *= self.DDN.n_type
+        # act = self.DDN.V
+        # lower = -71
+        # upper = np.average(self.DDN.V_threshold)
+        # center = (upper + lower)/2
+        # scale = (upper - lower)/2
+        # act = (act - center + .5) / scale
+        # act = np.clip(act, 0, 1) * self.DDN.ex_in
+
         if init:
             act = np.ones_like(act)
         N = coordinates.shape[0]
@@ -518,7 +529,7 @@ class DistDelayGUI_arm(object):
             array.
         """
         coordinates = self.grid
-        act = self.DDN.A[:, 0] * self.DDN.n_type
+        act = self.DDN.A[:, 0] * self.DDN.ex_in
         if init:
             act = np.ones_like(act)
         N = coordinates.shape[0]
@@ -667,8 +678,8 @@ def grid2dots_simple(coordinates, w, h, spacing, dot_size=5):
 
 def grid2dots(coordinates, DDN, w, h, spacing, dot_size=5):
 
-    act = DDN.A[:, 0] * DDN.n_type
-    act = np.ones_like(act) * DDN.n_type
+    act = DDN.A[:, 0] * DDN.ex_in
+    act = np.ones_like(act) * DDN.ex_in
     N = coordinates.shape[0]
     dots_ex = np.zeros((w, h))
     dots_in = np.zeros((w, h))
