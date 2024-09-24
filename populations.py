@@ -1949,8 +1949,12 @@ class FlexiblePopulation(DistDelayNetworkOld):
         self.in_loc = in_loc
         self.size_in = size_in
         self.size_out = size_out
-        self.mix = p_dict['mix']['val']
-        self.mix = self.mix/np.sum(self.mix)
+
+        self.mix = np.clip(p_dict['mix']['val'], p_dict['mix']['lims'][0], p_dict['mix']['lims'][1])
+        if np.sum(self.mix) > 0:
+            self.mix = self.mix/(np.sum(self.mix))
+        else:
+            self.mix = np.ones_like(self.mix)/len(self.mix)
         self.mu_x = p_dict['mu_x']['val']
         self.mu_y = p_dict['mu_y']['val']
         self.inhibitory = p_dict['inhibitory']['val']
