@@ -1,8 +1,6 @@
-from datetime import date
+from datetime import date, datetime
 import argparse
-import os
 from populations import FlexiblePopulation
-from simulator import NetworkSimulator
 import numpy as np
 from evolution import cmaes_alg_gma_pop_timeseries_prediction_old
 from utils import createNARMA30
@@ -18,7 +16,7 @@ if __name__ == '__main__':
     parser.add_argument("-nr", "--neurons", action="store", help="number of neurons", type=int, default=300)
     parser.add_argument("-dd", "--distributed_decay", action="store_true", help="Distributed decay parameter")
     parser.add_argument("-cd", "--cluster_decay", action="store_true", help="Different decay per cluster")
-
+    parser.add_argument("-s", "--suffix", action="store", help="filename suffix", type=str, default='')
 
     args = parser.parse_args()
     config = vars(args)
@@ -27,9 +25,13 @@ if __name__ == '__main__':
     K = config['clusters']
     distributed_decay = config['distributed_decay']
     per_cluster_decay = config['cluster_decay']
-
+    suffix = config['suffix']
+    if len(suffix) > 0:
+        suffix = '_' + suffix
+    net_type_name = 'BL'
     max_delay = 0.1
     if delay:
+        net_type_name = 'DDN'
         max_delay = 12
     x_range = [-.01, .01]
     y_range = [-.01, .01]
@@ -42,14 +44,16 @@ if __name__ == '__main__':
     size_in = 1
     size_out = N - size_in
     p_dict = get_p_dict_heterogeneity_exp(K, x_range, y_range)
-
+    dist_decay_name = 'dist_decay'
     if not distributed_decay:
+        dist_decay_name = 'fixed_decay'
         # If not distributed, a fixed decay value per cluster or network should be used
         # Hence scaling is fixed to 0
         p_dict['decay_scaling']['val'] = np.array([0])
         p_dict['decay_scaling']['evolve'] = False
-
+    per_cluster_name = 'net_wide'
     if per_cluster_decay:
+        per_cluster_name = 'per_cluster'
         # use different decay per cluster, which means decay parameter should be of size K
         p_dict['decay_mean']['val'] = np.array(K * list(p_dict['decay_mean']['val']))
         p_dict['decay_scaling']['val'] = np.array(K * list(p_dict['decay_scaling']['val']))
@@ -60,11 +64,13 @@ if __name__ == '__main__':
 
     data_train = np.array(createNARMA30(8000)).reshape((2, 8000))
     data_val = np.array(createNARMA30(4000)).reshape((2, 4000))
-    gens = 2#200
-    pop_size = 3 #20
-    reps_per_cand = 2#5
+    gens = 200
+    pop_size = 20
+    reps_per_cand = 5
     alphas = [10e-7, 10e-5, 10e-3]
     dir='heterogeneity_results'
-    filename='pilot'
+    filename= str(date.today()) + '_single_task_exp_' + net_type_name + '_' + dist_decay_name + '_' + per_cluster_name + suffix
+    print('Experiment will be saved as')
+    print(filename + '.pkl')
     cmaes_alg_gma_pop_timeseries_prediction_old(start_net, data_train, data_val, gens, pop_size, reps_per_cand, .3,
                                                 alphas, dir=dir, name=filename)

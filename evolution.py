@@ -6,7 +6,8 @@ from utils import eval_candidate_lag_gridsearch_NARMA, eval_candidate_signal_gen
 import pickle
 import os
 import copy
-from reservoirpy import datasets
+import time
+
 def cmaes_alg_gma_pop_timeseries_prediction_old(start_net, train_data, val_data, max_it, pop_size,
                                                 eval_reps, std, alphas, lag_grid=np.array(range(0, 15)), save_every=1,
                                                 dir='es_results', name='cma_es_gmm_test'):
@@ -38,6 +39,7 @@ def cmaes_alg_gma_pop_timeseries_prediction_old(start_net, train_data, val_data,
         file.close()
 
     while not es.stop():
+        t_start = time.time()
         candidate_solutions = es.ask()
         for c, cand in enumerate(candidate_solutions):
 
@@ -70,6 +72,9 @@ def cmaes_alg_gma_pop_timeseries_prediction_old(start_net, train_data, val_data,
         es.tell(candidate_solutions, best_scores)
         print('Gen ', gen)
         gen += 1
+        t_end = time.time()
+        duration = t_end - t_start
+        print('This generation took: ' + str(duration))
     es.result_pretty()
 
 
