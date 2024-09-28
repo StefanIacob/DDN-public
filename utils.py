@@ -170,12 +170,12 @@ def eval_candidate_lag_gridsearch_NARMA(network, train_data, val_data, warmup=40
 
     return train_performance_per_lag, val_performance_per_lag, model_per_lag
 
-# TODO:
-def eval_candidate_lag_gridsearch_NARMA_multitask(network, input_data, train_labels, val_labels, warmup=400,
+def eval_candidate_lag_gridsearch_NARMA_multitask(network, input_train, input_val, labels_train, labels_val, warmup=400,
                                         lag_grid=range(0, 15), alphas=[10e-14, 10e-13, 10e-12]):
     assert np.all(np.array(lag_grid) >= 0), 'No negative lag allowed'
-
-    pass
+    assert type(input_train) == type(input_val) == np.ndarray
+    assert type(labels_train) == type(labels_val) == list
+    n_tasks = len(labels_train)
 
 
 def eval_candidate_signal_gen(network, train_data, val_data, error_margin=.1, max_it_val=500, warmup=400,
