@@ -78,6 +78,89 @@ def cmaes_alg_gma_pop_timeseries_prediction_old(start_net, train_data, val_data,
     es.result_pretty()
 
 
+def cmaes_alg_gma_pop_timeseries_prediction_old(start_net, train_data, val_data, max_it, pop_size,
+                                                eval_reps, std, alphas, lag_grid=np.array(range(0, 15)), save_every=1,
+                                                dir='es_results', name='cma_es_gmm_test'):
+
+    multitask = False
+    if type(train_data) is list:
+        assert(len(train_data) == len(val_data))
+        multitask = True
+        n_tasks = len(train_data)
+    params = start_net.get_serialized_parameters()
+    opts = cma.CMAOptions()
+    opts['maxiter'] = max_it
+    opts['popsize'] = pop_size
+    es = cma.CMAEvolutionStrategy(params, std, opts)
+    param_hist = np.zeros((max_it, pop_size, len(params)))
+    if not multitask:
+        val_hist = np.zeros((max_it, pop_size, eval_reps, len(lag_grid)))
+    else:
+        val_hist = np.zeros((max_it, pop_size, eval_reps, n_tasks, len(lag_grid)))
+    std_hist = np.zeros((max_it,))
+    gen = 0
+
+    def save(net):
+        data = {
+            'validation performance': val_hist,
+            'parameters': param_hist,
+            'evolutionary strategy': es,
+            'cma stds': std_hist,
+            'example net': net,
+            'train data': train_data,
+            'validation data': val_data,
+            'alphas': alphas,
+            'start net': start_net
+        }
+        file = open(dir + '/' + name + '.p', "wb")
+        pickle.dump(data, file)
+        file.close()
+
+    while not es.stop():
+        t_start = time.time()
+        candidate_solutions = es.ask()
+        for c, cand in enumerate(candidate_solutions):
+
+            param_hist[gen, c, :] = cand
+            std_hist[gen] = es.sigma
+
+            for rep in range(eval_reps):
+                # Make sure to resample (i.e. re-generate) a network for every repetition
+                new_net = start_net.get_new_network_from_serialized(cand)
+                _, val_scores_lags, _ = eval_candidate_lag_gridsearch_NARMA(new_net,
+                                                                              train_data,
+                                                                              val_data,
+                                                                              lag_grid=lag_grid,
+                                                                              alphas=alphas)
+                if multitask:
+                    val_hist[gen, c, rep, :, :] = val_scores_lags
+                else:
+                    val_hist[gen, c, rep, :] = val_scores_lags
+
+        # save every m iterations
+        if (gen + 1) % save_every == 0:
+            save(new_net)
+
+        if not multitask:
+            val_scores = val_hist[gen, :, :, :]
+            val_scores_best = np.min(val_scores, -1)
+            best_scores = np.mean(val_scores_best, -1)
+        else:
+            val_scores = val_hist[gen, :, :, :, :]
+            val_scores_best = np.min(val_scores, -1)
+            val_scores_best_multitask = np.mean(val_scores_best, -1)
+            best_scores = np.mean(val_scores_best_multitask, -1)
+
+        print(best_scores)
+        es.tell(candidate_solutions, best_scores)
+        print('Gen ', gen)
+        gen += 1
+        t_end = time.time()
+        duration = t_end - t_start
+        print('This generation took: ' + str(duration))
+    es.result_pretty()
+
+
 def cmaes_alg_gma_pop_timeseries_prediction(start_net, train_data, val_data, exp_config, save_every=1, dir='es_results',
                                             name='cma_es_gmm_test'):
 
