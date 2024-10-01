@@ -2,7 +2,8 @@ import numpy as np
 import cma
 from utils import eval_candidate_lag_gridsearch_NARMA, eval_candidate_signal_gen, eval_candidate_signal_gen_adaptive, \
     eval_candidate_signal_gen_horizon, \
-    eval_candidate_signal_gen_multiple_random_sequences_adaptive_budget, eval_candidate_custom_data_signal_gen
+    eval_candidate_signal_gen_multiple_random_sequences_adaptive_budget, eval_candidate_custom_data_signal_gen, \
+    eval_candidate_lag_gridsearch_NARMA_multitask
 import pickle
 import os
 import copy
@@ -77,26 +78,96 @@ def cmaes_alg_gma_pop_timeseries_prediction_old(start_net, train_data, val_data,
         print('This generation took: ' + str(duration))
     es.result_pretty()
 
-
-def cmaes_alg_gma_pop_timeseries_prediction_old(start_net, train_data, val_data, max_it, pop_size,
+def cmaes_multitask_narma(start_net, data, max_it, pop_size,
                                                 eval_reps, std, alphas, lag_grid=np.array(range(0, 15)), save_every=1,
                                                 dir='es_results', name='cma_es_gmm_test'):
 
-    multitask = False
-    if type(train_data) is list:
-        assert(len(train_data) == len(val_data))
-        multitask = True
-        n_tasks = len(train_data)
+    assert len(data['train']['labels'].keys()) == len(data['validation']['labels'].keys())
+    task_names = list(data['train']['labels'].keys())
+    train_input = data['train']['inputs']
+    val_input = data['validation']['inputs']
+    train_labels = list(data['train']['labels'].values())
+    val_labels = list(data['validation']['labels'].values())
+    n_tasks = len(task_names)
     params = start_net.get_serialized_parameters()
     opts = cma.CMAOptions()
     opts['maxiter'] = max_it
     opts['popsize'] = pop_size
     es = cma.CMAEvolutionStrategy(params, std, opts)
     param_hist = np.zeros((max_it, pop_size, len(params)))
-    if not multitask:
-        val_hist = np.zeros((max_it, pop_size, eval_reps, len(lag_grid)))
-    else:
-        val_hist = np.zeros((max_it, pop_size, eval_reps, n_tasks, len(lag_grid)))
+    val_hist = np.zeros((max_it, pop_size, eval_reps, n_tasks, len(lag_grid)))
+
+    std_hist = np.zeros((max_it,))
+    gen = 0
+
+    def save(net):
+        save_data = {
+            'validation performance': val_hist,
+            'parameters': param_hist,
+            'evolutionary strategy': es,
+            'cma stds': std_hist,
+            'example net': net,
+            'data': data,
+            'alphas': alphas,
+            'start net': start_net
+        }
+        file = open(dir + '/' + name + '.p', "wb")
+        pickle.dump(save_data, file)
+        file.close()
+
+    while not es.stop():
+        t_start = time.time()
+        candidate_solutions = es.ask()
+        for c, cand in enumerate(candidate_solutions):
+
+            param_hist[gen, c, :] = cand
+            std_hist[gen] = es.sigma
+
+            for rep in range(eval_reps):
+                # Make sure to resample (i.e. re-generate) a network for every repetition
+                new_net = start_net.get_new_network_from_serialized(cand)
+                _, val_scores_tasks_lags, _ = eval_candidate_lag_gridsearch_NARMA_multitask(new_net, train_input,
+                                                                                      val_input,
+                                                                                      train_labels,
+                                                                                      val_labels,
+                                                                                      lag_grid=lag_grid,
+                                                                                      alphas=alphas)
+                val_hist[gen, c, rep, :, :] = val_scores_tasks_lags
+
+        # save every m iterations
+        if (gen + 1) % save_every == 0:
+            save(new_net)
+
+        val_scores = val_hist[gen, :, :, :]
+        val_scores_best_lags = np.min(val_scores, -1) # take best lag
+        fitness = np.mean(val_scores_best_lags, -2)  # average over repetitions
+        for i, task_name in enumerate(task_names):
+            print(task_name + ' fitness: ' + str(fitness[:, i]))
+        fitness = np.mean(fitness, -1) # average over task
+
+        print('Average fitness: ' + str(fitness))
+        es.tell(candidate_solutions, fitness)
+
+        print('Gen ', gen)
+        gen += 1
+        t_end = time.time()
+        duration = t_end - t_start
+        print('This generation took: ' + str(duration))
+    es.result_pretty()
+
+
+def cmaes_alg_gma_pop_timeseries_prediction_old(start_net, train_data, val_data, max_it, pop_size,
+                                                eval_reps, std, alphas, lag_grid=np.array(range(0, 15)), save_every=1,
+                                                dir='es_results', name='cma_es_gmm_test'):
+
+    params = start_net.get_serialized_parameters()
+    opts = cma.CMAOptions()
+    opts['maxiter'] = max_it
+    opts['popsize'] = pop_size
+    es = cma.CMAEvolutionStrategy(params, std, opts)
+    param_hist = np.zeros((max_it, pop_size, len(params)))
+    val_hist = np.zeros((max_it, pop_size, eval_reps, len(lag_grid)))
+
     std_hist = np.zeros((max_it,))
     gen = 0
 
@@ -128,29 +199,24 @@ def cmaes_alg_gma_pop_timeseries_prediction_old(start_net, train_data, val_data,
                 # Make sure to resample (i.e. re-generate) a network for every repetition
                 new_net = start_net.get_new_network_from_serialized(cand)
                 _, val_scores_lags, _ = eval_candidate_lag_gridsearch_NARMA(new_net,
-                                                                              train_data,
-                                                                              val_data,
-                                                                              lag_grid=lag_grid,
-                                                                              alphas=alphas)
-                if multitask:
-                    val_hist[gen, c, rep, :, :] = val_scores_lags
-                else:
-                    val_hist[gen, c, rep, :] = val_scores_lags
+                                                                          train_data,
+                                                                          val_data,
+                                                                          lag_grid=lag_grid,
+                                                                          alphas=alphas)
+                val_hist[gen, c, rep, :] = val_scores_lags
 
         # save every m iterations
         if (gen + 1) % save_every == 0:
             save(new_net)
 
-        if not multitask:
-            val_scores = val_hist[gen, :, :, :]
-            val_scores_best = np.min(val_scores, -1)
-            best_scores = np.mean(val_scores_best, -1)
-        else:
-            val_scores = val_hist[gen, :, :, :, :]
-            val_scores_best = np.min(val_scores, -1)
-            val_scores_best_multitask = np.mean(val_scores_best, -1)
-            best_scores = np.mean(val_scores_best_multitask, -1)
+        val_scores = val_hist[gen, :, :, :]
+        best_lags = np.argmin(val_scores, -1)
+        best_scores = np.zeros((pop_size, eval_reps))
+        for i in range(pop_size):
+            for j in range(eval_reps):
+                best_scores[i, j] = val_scores[i, j, best_lags[i, j]]
 
+        best_scores = np.mean(best_scores, 1)
         print(best_scores)
         es.tell(candidate_solutions, best_scores)
         print('Gen ', gen)

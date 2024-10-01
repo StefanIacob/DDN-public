@@ -98,6 +98,14 @@ def spectral_radius_norm(W, wanted_sr):
     W_scaled = (W * wanted_sr) / sr
     return W_scaled
 
+def inputs2NARMA(inputs, system_order=10, coef=[.3, .05, 1.5, .1]):
+    length = len(inputs)
+    outputs = np.zeros((length, 1))
+    for k in range(system_order - 1, length - 1):
+        outputs[k + 1] = coef[0] * outputs[k] + coef[1] * \
+                         outputs[k] * np.sum(outputs[k - (system_order - 1):k + 1]) + \
+                         coef[2] * inputs[k - (system_order - 1)] * inputs[k] + coef[3]
+    return outputs
 
 def createNARMA(length=10000, system_order=10, coef=[.3, .05, 1.5, .1]):
     inputs = np.random.rand(length, 1) * .5
@@ -176,6 +184,62 @@ def eval_candidate_lag_gridsearch_NARMA_multitask(network, input_train, input_va
     assert type(input_train) == type(input_val) == np.ndarray
     assert type(labels_train) == type(labels_val) == list
     n_tasks = len(labels_train)
+    train_input = input_train[warmup:]
+    train_input_warmup = input_train[:warmup]
+
+    val_input = input_val[warmup:]
+    val_input_warmup = input_val[:warmup]
+
+    sim = NetworkSimulator(network)
+
+    # generate net activity
+    # run warmup
+    sim.warmup(train_input_warmup)
+    train_net_act = sim.get_network_data(train_input).T
+    sim.reset()
+    # run warmup
+    sim.warmup(val_input_warmup)
+    val_net_act = sim.get_network_data(val_input).T
+
+    val_performance_per_task = []
+    train_performance_per_task = []
+    model_per_task = {}
+
+    for task_i, train_labels in enumerate(labels_train):
+        train_labels = train_labels[warmup:]
+        val_labels = labels_val[task_i][warmup:]
+        val_performance_per_lag = []
+        train_performance_per_lag = []
+        model_per_lag = {}
+
+        for lag in lag_grid:
+            model = RidgeCV(alphas=alphas, cv=5)
+
+            # clip labels to fit lag parameter
+            train_labels_clipped = train_labels
+            val_labels_clipped = val_labels
+            if lag > 0:
+                train_labels_clipped = train_labels[:-lag]
+                val_labels_clipped = val_labels[:-lag]
+
+            model.fit(train_net_act[lag:], train_labels_clipped)
+
+            train_predictions = model.predict(train_net_act)
+            train_performance = nrmse(train_predictions[lag:], train_labels_clipped)
+
+            # test readout
+            val_predictions = model.predict(val_net_act)
+            val_performance = nrmse(val_predictions[lag:], val_labels_clipped)
+
+            val_performance_per_lag.append(val_performance)
+            train_performance_per_lag.append(train_performance)
+            model_per_lag[lag] = model
+        val_performance_per_task.append(val_performance_per_lag)
+        train_performance_per_task.append(train_performance_per_lag)
+        model_per_task[task_i] = model_per_lag
+
+    return train_performance_per_task, val_performance_per_task, model_per_task
+
 
 
 def eval_candidate_signal_gen(network, train_data, val_data, error_margin=.1, max_it_val=500, warmup=400,
