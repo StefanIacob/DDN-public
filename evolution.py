@@ -80,9 +80,13 @@ def cmaes_alg_gma_pop_timeseries_prediction_old(start_net, train_data, val_data,
 
 def cmaes_multitask_narma(start_net, data, max_it, pop_size,
                                                 eval_reps, std, alphas, lag_grid=np.array(range(0, 15)), save_every=1,
-                                                dir='es_results', name='cma_es_gmm_test'):
+                                                dir='es_results', name='cma_es_gmm_test', weighing_func=None):
 
     assert len(data['train']['labels'].keys()) == len(data['validation']['labels'].keys())
+
+    if weighing_func is None:
+        def weighing_func(task_error_list, task_axis=0):
+            return np.mean(task_error_list, axis=task_axis)
     task_names = list(data['train']['labels'].keys())
     train_input = data['train']['inputs']
     val_input = data['validation']['inputs']
@@ -143,7 +147,7 @@ def cmaes_multitask_narma(start_net, data, max_it, pop_size,
         fitness = np.mean(val_scores_best_lags, -2)  # average over repetitions
         for i, task_name in enumerate(task_names):
             print(task_name + ' fitness: ' + str(fitness[:, i]))
-        fitness = np.mean(fitness, -1) # average over task
+        fitness = weighing_func(fitness, -1) # average over task
 
         print('Average fitness: ' + str(fitness))
         es.tell(candidate_solutions, fitness)

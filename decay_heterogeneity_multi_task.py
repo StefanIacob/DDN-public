@@ -86,13 +86,25 @@ if __name__ == '__main__':
             }
         }
     }
+
+    def weighting_func(task_list, task_axis=-1):
+        task_list = task_list**2
+        n_tasks = task_list.shape[task_axis]
+        pop_size = task_list.shape[task_axis + 1]
+        weights = [5/6, 1/6]
+        pop_score = np.zeros((pop_size,))
+        for t in range(n_tasks):
+            task = np.take(task_list, indices=t, axis=task_axis)
+            pop_score += task * weights[t]
+        return pop_score
+
     gens = 200
     pop_size = 20
     reps_per_cand = 5
     alphas = [10e-7, 10e-5, 10e-3]
     dir='heterogeneity_results'
-    filename= str(date.today()) + '_multi_task_exp_' + net_type_name + '_' + dist_decay_name + '_' + per_cluster_name + suffix
+    filename= str(date.today()) + '_multi_task_exp_weighed_' + net_type_name + '_' + dist_decay_name + '_' + per_cluster_name + suffix
     print('Experiment will be saved as')
     print(filename + '.pkl')
     cmaes_multitask_narma(start_net, data, gens, pop_size, reps_per_cand, .3,
-                                                alphas, dir=dir, name=filename)
+                                                alphas, dir=dir, name=filename, weighing_func=weighting_func)
