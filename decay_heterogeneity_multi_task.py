@@ -11,6 +11,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Experiment configuration",
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument("-d", "--delay", action="store_true", help="Run experiment with delays")
+    parser.add_argument("-w", "--weighted", action="store_true", help="Use weighted multi-task score")
     parser.add_argument("-k", "--clusters", action="store", help="number of GMM clusters to be used",
                         type=int, default=5)
     parser.add_argument("-nr", "--neurons", action="store", help="number of neurons", type=int, default=300)
@@ -24,6 +25,7 @@ if __name__ == '__main__':
     delay = config['delay']
     N = config['neurons']
     K = config['clusters']
+    weighted = config['weighted']
     multi_task = config['multitask']
     distributed_decay = config['distributed_decay']
     per_cluster_decay = config['cluster_decay']
@@ -106,5 +108,9 @@ if __name__ == '__main__':
     filename= str(date.today()) + '_multi_task_exp_weighed_' + net_type_name + '_' + dist_decay_name + '_' + per_cluster_name + suffix
     print('Experiment will be saved as')
     print(filename + '.pkl')
-    cmaes_multitask_narma(start_net, data, gens, pop_size, reps_per_cand, .3,
-                                                alphas, dir=dir, name=filename, weighing_func=weighting_func)
+    if weighted:
+        cmaes_multitask_narma(start_net, data, gens, pop_size, reps_per_cand, .3,
+                                                    alphas, dir=dir, name=filename, weighing_func=weighting_func)
+    else:
+        cmaes_multitask_narma(start_net, data, gens, pop_size, reps_per_cand, .3,
+                              alphas, dir=dir, name=filename)
