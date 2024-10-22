@@ -19,6 +19,8 @@ if __name__ == '__main__':
     parser.add_argument("-cd", "--cluster_decay", action="store_true", help="Different decay per cluster")
     parser.add_argument("-mt", "--multitask", action="store_true", help="Optimize for multiple tasks")
     parser.add_argument("-s", "--suffix", action="store", help="filename suffix", type=str, default='')
+    parser.add_argument("-sd", "--seed", action="store", help="random seed", type=int, default=3)
+
 
     args = parser.parse_args()
     config = vars(args)
@@ -30,6 +32,8 @@ if __name__ == '__main__':
     distributed_decay = config['distributed_decay']
     per_cluster_decay = config['cluster_decay']
     suffix = config['suffix']
+    seed = config['seed']
+    np.random.seed(seed)
     if len(suffix) > 0:
         suffix = '_' + suffix
     net_type_name = 'BL'
