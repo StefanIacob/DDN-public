@@ -11,6 +11,7 @@ import os
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Experiment configuration",
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument("-d", "--delay", action="store_true", help="Run experiment with delays")
     parser.add_argument("-w", "--weighted", action="store_true", help="Use weighted multi-task score")
     parser.add_argument("-k", "--clusters", action="store", help="number of GMM clusters to be used",
                         type=int, default=5)
@@ -24,6 +25,7 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
     config = vars(args)
+    delay = config['delay']
     N = config['neurons']
     K = config['clusters']
     weighted = config['weighted']
@@ -35,8 +37,12 @@ if __name__ == '__main__':
     np.random.seed(seed)
     if len(suffix) > 0:
         suffix = '_' + suffix
-    net_type_name = 'DDN'
-    max_delay = 20
+
+    net_type_name = 'BL'
+    max_delay = 0.1
+    if delay:
+        net_type_name = 'DDN'
+        max_delay = 15
     x_range = [-.01, .01]
     y_range = [-.01, .01]
     width = x_range[1] - x_range[0]
@@ -49,24 +55,27 @@ if __name__ == '__main__':
     size_out = N - size_in
     start_location_var = 0.002
     start_locatation_mean_var = 0.008
-    p_dict = get_p_dict_heterogeneity_exp(K, x_range, y_range, start_location_var, start_locatation_mean_var)
+    start_weight_mean = .5
+    start_weight_var = .5
+    start_bias_mean = 0
+    start_bias_var = .5
+    p_dict = get_p_dict_heterogeneity_exp(K, x_range, y_range, start_location_var, start_locatation_mean_var,
+                                          start_weight_mean, start_weight_var, start_bias_mean, start_bias_var)
     dist_name = 'dist'
     if not distributed:
         dist_name = 'fixed'
-        p_dict['variance_x']['val'] = np.array([0] * K)
-        p_dict['variance_y']['val'] = np.array([0] * K)
-        p_dict['variance_x']['evolve'] = False
-        p_dict['variance_y']['evolve'] = False
+        p_dict['bias_scaling']['val'] = np.array([0])
+        p_dict['weight_scaling']['val'] = np.array([0])
+        p_dict['bias_scaling']['evolve'] = False
+        p_dict['weight_scaling']['evolve'] = False
 
     per_cluster_name = 'per_cluster'
     if not cluster_diff:
         per_cluster_name = 'net_wide'
-        p_dict['mu_x']['val'] = np.array([0])
-        p_dict['mu_y']['val'] = np.array([0])
-        var_x = p_dict['variance_x']['val'][0]
-        var_y = p_dict['variance_x']['val'][0]
-        p_dict['variance_x']['val'] = np.array([var_x])
-        p_dict['variance_y']['val'] = np.array([var_x])
+        p_dict['bias_mean']['val'] = np.array([start_bias_mean])
+        p_dict['bias_scaling']['val'] = np.array([start_bias_var])
+        p_dict['weight_mean']['val'] = np.array([start_weight_mean])
+        p_dict['weight_scaling']['val'] = np.array([start_weight_var])
 
     start_net = FlexiblePopulation(N, x_range, y_range, dt, in_loc, size_in, size_out,
                      p_dict)
@@ -109,7 +118,7 @@ if __name__ == '__main__':
     pop_size = 20
     reps_per_cand = 5
     alphas = [10e-7, 10e-5, 10e-3]
-    dir='delay_heterogeneity_results'
+    dir='weight_heterogeneity_results'
 
     ### Visualization Code ###
     from simulator import NetworkSimulator
