@@ -111,11 +111,11 @@ if __name__ == '__main__':
     alphas = [10e-7, 10e-5, 10e-3]
     dir='delay_heterogeneity_results'
 
-    ### Visualization Code ###
-    from simulator import NetworkSimulator
-    sim = NetworkSimulator(start_net)
-    sim.visualize(data['train']['inputs'])
-    ### ------------------ ###
+    # ### Visualization Code ###
+    # from simulator import NetworkSimulator
+    # sim = NetworkSimulator(start_net)
+    # sim.visualize(data['train']['inputs'])
+    # ### ------------------ ###
 
     if not os.path.exists(dir):
         os.makedirs(dir)
