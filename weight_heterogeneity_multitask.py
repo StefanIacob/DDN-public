@@ -72,10 +72,16 @@ if __name__ == '__main__':
     per_cluster_name = 'per_cluster'
     if not cluster_diff:
         per_cluster_name = 'net_wide'
-        p_dict['bias_mean']['val'] = np.array([start_bias_mean])
-        p_dict['bias_scaling']['val'] = np.array([start_bias_var])
-        p_dict['weight_mean']['val'] = np.array([start_weight_mean])
-        p_dict['weight_scaling']['val'] = np.array([start_weight_var])
+
+        bias_mean = p_dict['bias_mean']['val'][0]
+        bias_var = p_dict['bias_scaling']['val'][0]
+        weight_mean = p_dict['weight_mean']['val'][0]
+        weight_var = p_dict['weight_scaling']['val'][0]
+
+        p_dict['bias_mean']['val'] = np.array([bias_mean])
+        p_dict['bias_scaling']['val'] = np.array([bias_var])
+        p_dict['weight_mean']['val'] = np.array([weight_mean])
+        p_dict['weight_scaling']['val'] = np.array([weight_var])
 
     start_net = FlexiblePopulation(N, x_range, y_range, dt, in_loc, size_in, size_out,
                      p_dict)
@@ -120,11 +126,11 @@ if __name__ == '__main__':
     alphas = [10e-7, 10e-5, 10e-3]
     dir='weight_heterogeneity_results'
 
-    ### Visualization Code ###
-    from simulator import NetworkSimulator
-    sim = NetworkSimulator(start_net)
-    sim.visualize(data['train']['inputs'])
-    ### ------------------ ###
+    # ### Visualization Code ###
+    # from simulator import NetworkSimulator
+    # sim = NetworkSimulator(start_net)
+    # sim.visualize(data['train']['inputs'])
+    # ### ------------------ ###
 
     if not os.path.exists(dir):
         os.makedirs(dir)

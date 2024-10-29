@@ -2,7 +2,8 @@ import numpy as np
 
 propagation_vel = 30 # m/s
 
-def get_p_dict_heterogeneity_exp(K, x_range, y_range, start_location_var=0.003, start_location_mean_var=0):
+def get_p_dict_heterogeneity_exp(K, x_range, y_range, start_location_var=0.003, start_location_mean_var=0,
+                                 start_weight_mean=.2, start_weight_var=.3, start_bias_mean=0, start_bias_var=.5):
     # returns base p_dict, requires further tweaking for different experiment conditions
     center = 0
     start = center-start_location_mean_var
@@ -59,25 +60,25 @@ def get_p_dict_heterogeneity_exp(K, x_range, y_range, start_location_var=0.003, 
             'lims': (0, 1)
         },
         'weight_mean': {
-            'val': np.ones(shape=(K, K)) * 0.2,
+            'val': np.ones(shape=(K, K)) * start_weight_mean,
             'evolve': True,
             'range': (0, 2),
             'lims': (0, float('inf'))
         },
         'weight_scaling': {
-            'val': np.ones(shape=(K, K)) * .3,
+            'val': np.ones(shape=(K, K)) * start_weight_var,
             'evolve': True,
             'range': (0, 2),
             'lims': (0, float('inf'))
         },
         'bias_mean': {
-            'val': np.ones(shape=(K,)) * 0,
+            'val': np.ones(shape=(K,)) * start_bias_mean,
             'evolve': True,
             'range': (-1, 1),
             'lims': (-float('inf'), float('inf'))
         },
         'bias_scaling': {
-            'val': np.ones(shape=(K,)) * 0.5,
+            'val': np.ones(shape=(K,)) * start_bias_var,
             'evolve': True,
             'range': (0, 1),
             'lims': (0, float('inf'))
