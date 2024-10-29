@@ -1955,10 +1955,11 @@ class FlexiblePopulation(DistDelayNetworkOld):
             self.mix = self.mix/(np.sum(self.mix))
         else:
             self.mix = np.ones_like(self.mix)/len(self.mix)
-        self.mu_x = p_dict['mu_x']['val']
-        self.mu_y = p_dict['mu_y']['val']
-        self.inhibitory = p_dict['inhibitory']['val']
         self.K = len(self.mix)
+
+        self.mu_x = p_per_cluster(p_dict['mu_x']['val'], self.K, 1)
+        self.mu_y = p_per_cluster(p_dict['mu_y']['val'], self.K, 1)
+        self.inhibitory = p_per_cluster(p_dict['inhibitory']['val'], self.K, 1)
 
         self.weight_mean = p_per_cluster(p_dict['weight_mean']['val'], self.K, 2)
         self.weight_scaling = p_per_cluster(p_dict['weight_scaling']['val'], self.K, 2)
@@ -2172,11 +2173,14 @@ class FlexiblePopulation(DistDelayNetworkOld):
     def get_loc_covariance(self):
         var_mat = np.zeros((self.K, 2, 2))
         corr_mat = np.ones((self.K, 2, 2))
+        x_var = p_per_cluster(self.p_dict['variance_x']['val'], self.K, 1)
+        y_var = p_per_cluster(self.p_dict['variance_y']['val'], self.K, 1)
+        xy_corr = p_per_cluster(self.p_dict['correlation']['val'], self.K, 1)
         for i in range(self.K):
-            var_mat[i, 0, 0] = self.p_dict['variance_x']['val'][i]
-            var_mat[i, 1, 1] = self.p_dict['variance_y']['val'][i]
-            corr_mat[i, 0, 1] = self.p_dict['correlation']['val'][i]
-            corr_mat[i, 1, 0] = self.p_dict['correlation']['val'][i]
+            var_mat[i, 0, 0] = x_var[i]
+            var_mat[i, 1, 1] = y_var[i]
+            corr_mat[i, 0, 1] = xy_corr[i]
+            corr_mat[i, 1, 0] = xy_corr[i]
 
         Sigma = np.matmul(np.matmul(var_mat, corr_mat), var_mat)
         return Sigma

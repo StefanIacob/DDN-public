@@ -1,8 +1,14 @@
 import numpy as np
-propagation_vel = 30
 
-def get_p_dict_heterogeneity_exp(K, x_range, y_range):
+propagation_vel = 30 # m/s
+
+def get_p_dict_heterogeneity_exp(K, x_range, y_range, start_location_var=0.003, start_location_mean_var=0):
     # returns base p_dict, requires further tweaking for different experiment conditions
+    center = 0
+    start = center-start_location_mean_var
+    end = center+start_location_mean_var
+    step = (end-start)/K
+    start_locations_on_diag = [start + (i+1) * step for i in range(K)]
     p_dict = {
         'mix': {
             'val': np.ones(shape=(K,)) / K,
@@ -11,28 +17,28 @@ def get_p_dict_heterogeneity_exp(K, x_range, y_range):
             'lims': (0, float('inf'))
         },
         'mu_x': {
-            'val': np.zeros(shape=(K,)),
+            'val': np.array(start_locations_on_diag),
             'evolve': True,
             'range': x_range,
             'lims': x_range
         },
         'mu_y': {
-            'val': np.zeros(shape=(K,)),
+            'val': np.array(start_locations_on_diag),
             'evolve': True,
             'range': y_range,
             'lims': y_range
         },
         'variance_x': {
-            'val': np.ones(shape=(K,)) * 0.003,
+            'val': np.ones(shape=(K,)) * start_location_var,
             'evolve': True,
             'range': x_range,
-            'lims': (-float('inf'), float('inf'))
+            'lims': (0, float('inf'))
         },
         'variance_y': {
-            'val': np.ones(shape=(K,)) * .003,
+            'val': np.ones(shape=(K,)) * start_location_var,
             'evolve': True,
             'range': y_range,
-            'lims': (-float('inf'), float('inf'))
+            'lims': (0, float('inf'))
         },
         'correlation': {
             'val': np.ones(shape=(K,)) * 0,
