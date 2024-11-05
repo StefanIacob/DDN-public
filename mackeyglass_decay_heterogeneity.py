@@ -1,8 +1,5 @@
 from datetime import date, datetime
 import argparse
-
-from tornado.autoreload import start
-
 from populations import FlexiblePopulation
 import numpy as np
 from evolution import cmaes_multitask_narma, cmaes_alg_gma_pop_signal_gen_adaptive
