@@ -85,14 +85,13 @@ if __name__ == '__main__':
     start_net = FlexiblePopulation(N, x_range, y_range, dt, in_loc, size_in, size_out,
                                    p_dict)
 
-    ### Visualization Code ###
-    from simulator import NetworkSimulator
-    from reservoirpy.datasets import mackey_glass
-    mg_example = mackey_glass(1000)
-    sim = NetworkSimulator(start_net)
-    net_data = sim.get_network_data(mg_example)
-
-    ### ------------------ ###
+    # ### Visualization Code ###
+    # from simulator import NetworkSimulator
+    # from reservoirpy.datasets import mackey_glass
+    # mg_example = mackey_glass(1000)
+    # sim = NetworkSimulator(start_net)
+    # net_data = sim.get_network_data(mg_example)
+    # ### ------------------ ###
 
     n_unsupervised = 0
     n_supervised = 1000
