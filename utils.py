@@ -480,7 +480,7 @@ def eval_candidate_signal_gen_horizon(network, n_sequences_unsupervised,
             feedback_in = np.ones((len(network.neurons_in),)) * feedback_in
             network.update_step(feedback_in)
             output = network.A[network.neurons_out, 0].T
-            feedback_in = model.predict(output)[0][0]
+            feedback_in = model.predict(np.expand_dims(output, 0))
             error = single_sample_NRSE(feedback_in, labels_val[j, 0],
                                        label_variance)
             error_hist.append(error)

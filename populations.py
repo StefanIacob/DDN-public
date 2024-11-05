@@ -1933,6 +1933,113 @@ class GMMPopulationOld(DistDelayNetworkOld):
 
         return np.array(serialized_parameters)
 
+class AdaptiveFlexiblePopulation(DistDelayNetwork):
+    def __init__(self, N, x_range, y_range, dt, in_loc, out_loc, size_in, size_out, p_dict,
+                 act_func=sigmoid_activation):
+        assert p_dict.keys() == {'mix', 'mu_x', 'mu_y', 'variance_x', 'variance_y', 'correlation', 'inhibitory',
+                                 'connectivity', 'weight_mean', 'weight_scaling', 'bias_mean', 'bias_scaling',
+                                 'decay_mean', 'decay_scaling', 'in_scaling', 'in_mean', 'in_connectivity', 'lr_mean',
+                                 'lr_scaling', 'theta0_mean', 'theta0_scaling', 'in_lr_mean', 'in_lr_scaling',
+                                 'out_lr_mean', 'out_lr_scaling', 'out_theta0', 'out_mean',
+                                 'out_scaling', 'out_connectivity'}
+
+        self.init_evo_info(p_dict)
+        self.N = N
+        self.x_range = x_range
+        self.y_range = y_range
+        self.dt = dt
+        self.in_loc = in_loc
+        self.out_loc = out_loc
+        self.size_in = size_in
+        self.size_out = size_out
+
+        self.mix = np.clip(p_dict['mix']['val'], p_dict['mix']['lims'][0], p_dict['mix']['lims'][1])
+        if np.sum(self.mix) > 0:
+            self.mix = self.mix / (np.sum(self.mix))
+        else:
+            self.mix = np.ones_like(self.mix) / len(self.mix)
+        self.K = len(self.mix)
+
+        self.mu_x = p_per_cluster(p_dict['mu_x']['val'], self.K, 1)
+        self.mu_y = p_per_cluster(p_dict['mu_y']['val'], self.K, 1)
+        self.inhibitory = p_per_cluster(p_dict['inhibitory']['val'], self.K, 1)
+
+        self.weight_mean = p_per_cluster(p_dict['weight_mean']['val'], self.K, 2)
+        self.weight_scaling = p_per_cluster(p_dict['weight_scaling']['val'], self.K, 2)
+        self.weight_lims = p_dict['weight_mean']['lims']
+        self.res_connectivity = p_per_cluster(p_dict['connectivity']['val'], self.K, 2)
+        self.in_mean = p_per_cluster(p_dict['in_mean']['val'], self.K, 1)
+        self.in_scaling = p_per_cluster(p_dict['in_scaling']['val'], self.K, 1)
+        self.in_connectivity = p_per_cluster(p_dict['in_connectivity']['val'], self.K, 1)
+
+        self.bias_mean = p_per_cluster(p_dict['bias_mean']['val'], self.K, 1)
+        self.bias_scaling = p_per_cluster(p_dict['bias_scaling']['val'], self.K, 1)
+        self.bias_lims = p_dict['bias_mean']['lims']
+
+        self.decay_means = p_per_cluster(p_dict['decay_mean']['val'], self.K, 1)
+        self.decay_scaling = p_per_cluster(p_dict['decay_scaling']['val'], self.K, 1)
+        self.lr_mean = p_per_cluster(p_dict['lr_mean']['val'], self.K, 2)
+        self.lr_mean = p_per_cluster(p_dict['lr_scaling']['val'], self.K, 2)
+        self.theta0_mean = p_per_cluster(p_dict['theta0_mean']['val'], self.K, 1)
+        self.theta0_scaling = p_per_cluster(p_dict['theta0_scaling']['val'], self.K, 1)
+        self.in_lr_mean = p_per_cluster(p_dict['in_lr_mean']['val'], self.K, 1)
+        self.out_lr_mean = p_per_cluster(p_dict['out_lr_mean']['val'], self.K, 1)
+        self.in_lr_scaling = p_per_cluster(p_dict['in_lr_scaling']['val'], self.K, 1)
+        self.out_lr_scaling = p_per_cluster(p_dict['out_lr_scaling']['val'], self.K, 1)
+        self.out_theta0 = p_dict['out_theta0']['val']
+        self.out_mean = p_per_cluster(p_dict['out_mean']['val'], self.K, 1)
+        self.out_scaling = p_per_cluster(p_dict['out_scaling']['val'], self.K, 1)
+        self.out_connectivity = p_per_cluster(p_dict['out_connectivity']['val'], self.K, 1)
+
+        self.p_dict = p_dict
+
+        # Get neuron location grid
+        Sigma = self.get_loc_covariance()
+        mu = np.array([self.mu_x, self.mu_y]).T
+
+        grid, n_type, clusters = get_gaussian_mixture_config(N - size_in, self.mix, mu, self.inhibitory, Sigma,
+                                                             x_range, y_range)
+
+        width = x_range[1] - x_range[0]
+        height = y_range[1] - y_range[0]
+
+        mu_x_in, mu_y_in = self.in_loc
+
+        Sigma_in = 0.002 * (np.array(
+            [
+                [width, 0],
+                [0, height]
+            ])) ** 2
+        Sigma_in = np.expand_dims(Sigma_in, 0)
+
+        grid, n_type, clusters = set_inout_cluster(grid, n_type, clusters, size_in, mu_x_in, mu_y_in,
+                                                   Sigma=Sigma_in,
+                                                   x_range=x_range, y_range=y_range)
+        sort_key = np.argsort(clusters)
+        clusters_sorted = clusters[sort_key]
+        n_type_sorted = n_type[sort_key]
+        grid_sorted = grid[sort_key]
+
+        input_index = np.array(range(N - size_in, N))
+        output_index = np.array(range(0, N - size_in))
+
+        self.clusters = clusters_sorted
+
+        # Get weight matrix
+        W, bias, decay = self.get_cluster_based_params()
+
+        super().__init__(weights=W, bias=bias, n_type=n_type_sorted, coordinates=grid_sorted, decay=decay,
+                         input_n=input_index,
+                         output_n=output_index, activation_func=act_func, dt=dt)
+
+    def init_evo_info(self, p_dict):
+        self.total_serial_p_size = 0
+        for p_name in p_dict:
+            assert p_dict[p_name].keys() == {'val', 'evolve', 'range', 'lims'}
+            assert type(p_dict[p_name]['val']) == np.ndarray
+            if p_dict[p_name]['evolve']:
+                serial_size = p_dict[p_name]['val'].size
+                self.total_serial_p_size += serial_size
 
 class FlexiblePopulation(DistDelayNetworkOld):
     def __init__(self, N, x_range, y_range, dt, in_loc, size_in, size_out,
@@ -2015,6 +2122,7 @@ class FlexiblePopulation(DistDelayNetworkOld):
 
         super().__init__(weights=W, bias=bias, n_type=n_type_sorted, coordinates=grid_sorted, decay=decay, input_n=input_index,
                          output_n=output_index, activation_func=act_func, dt=dt)
+
 
     def get_serialized_parameters(self):
         def scale_down(params, middle, scale):

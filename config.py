@@ -1,15 +1,16 @@
 import numpy as np
 
-propagation_vel = 30 # m/s
+propagation_vel = 30  # m/s
+
 
 def get_p_dict_heterogeneity_exp(K, x_range, y_range, start_location_var=0.003, start_location_mean_var=0,
                                  start_weight_mean=.2, start_weight_var=.3, start_bias_mean=0, start_bias_var=.5):
     # returns base p_dict, requires further tweaking for different experiment conditions
     center = 0
-    start = center-start_location_mean_var
-    end = center+start_location_mean_var
-    step = (end-start)/K
-    start_locations_on_diag = [start + (i+1) * step for i in range(K)]
+    start = center - start_location_mean_var
+    end = center + start_location_mean_var
+    step = (end - start) / K
+    start_locations_on_diag = [start + (i + 1) * step for i in range(K)]
     p_dict = {
         'mix': {
             'val': np.ones(shape=(K,)) / K,
@@ -114,4 +115,79 @@ def get_p_dict_heterogeneity_exp(K, x_range, y_range, start_location_var=0.003, 
             'lims': (0, 1)
         }
     }
+    return p_dict
+
+
+def get_p_dict_heterogeneity_exp_adaptive(K, x_range, y_range, start_location_var=0.003, start_location_mean_var=0,
+                                          start_weight_mean=.2, start_weight_var=.3, start_bias_mean=0,
+                                          start_bias_var=.5):
+    # returns base p_dict, requires further tweaking for different experiment conditions
+    p_dict = get_p_dict_heterogeneity_exp(K, x_range, y_range, start_location_var=start_location_var,
+                                          start_location_mean_var=start_location_mean_var,
+                                          start_weight_mean=start_weight_mean, start_weight_var=start_weight_var,
+                                          start_bias_mean=start_bias_mean, start_bias_var=start_bias_var)
+
+    p_dict['lr_mean'] = {
+        'val': .1 * np.ones(shape=(K, K)),
+        'evolve': True,
+        'range': (0, .3),
+        'lims': (0, float('inf'))
+    }
+    p_dict['lr_scaling'] = {
+        'val': .1 * np.ones(shape=(K, K)),
+        'evolve': True,
+        'range': (0, .1),
+        'lims': (0, float('inf'))
+    }
+    p_dict['theta0_mean'] = {
+        'val': .1 * np.ones(shape=(K,)),
+        'evolve': True,
+        'range': (0, .25),
+        'lims': (0, .25)  # TODO: why?
+    },
+    p_dict['theta0_scaling'] = {
+        'val': .1 * np.ones(shape=(K)),
+        'evolve': True,
+        'range': (0, .1),
+        'lims': (0, float('inf'))
+    }
+    p_dict['in_lr_mean'] = {
+        'val': .1 * np.ones(shape=(K,)),
+        'evolve': True,
+        'range': (0, .3),
+        'lims': (0, float('inf'))
+    }
+    p_dict['in_lr_scaling'] = {
+        'val': .1 * np.ones(shape=(K)),
+        'evolve': True,
+        'range': (0, .1),
+        'lims': (0, float('inf'))
+    }
+    p_dict['out_lr_mean'] = p_dict['in_lr_mean']
+    p_dict['out_lr_scaling'] = p_dict['in_lr_scaling']
+    p_dict['out_theta0'] = {
+        'val': np.array([.1]),
+        'evolve': True,
+        'range': (0, .25),
+        'lims': (0, .25)
+    }
+    p_dict['out_mean'] = {
+        'val': .8 * np.ones(shape=(K,)),
+        'evolve': True,
+        'range': (-2, 2),
+        'lims': (-float('inf'), float('inf'))
+    }
+    p_dict['out_scaling'] = {
+        'val': .1 * np.ones(shape=(K,)),
+        'evolve': True,
+        'range': (0, 2),
+        'lims': (0, float('inf'))
+    }
+    p_dict['out_connectivity'] = {
+        'val': .6 * np.ones(shape=(K,)),
+        'evolve': True,
+        'range': (0, 1),
+        'lims': (0, 1)
+    }
+
     return p_dict
