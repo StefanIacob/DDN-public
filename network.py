@@ -34,7 +34,6 @@ class DistDelayNetwork(object):
         self.var_delays = self.B > 2
         self.A_init = np.zeros((self.N, self.B))
         self.A = np.copy(self.A_init)
-        self.neuron_inputs = np.zeros((self.N,))
 
         self.neurons_in = input_n  # Indices for input neurons
         self.neurons_out = output_n  # Indices for output neurons
@@ -117,16 +116,16 @@ class DistDelayNetwork(object):
 
         if self.B > 1 and self.var_delays:
             # Compute input to reservoir neurons on next time step taking delays into consideration
-            self.neuron_inputs = np.copy(self.WBias)  # Add bias weights first
+            neuron_inputs = np.copy(self.WBias)  # Add bias weights first
             for d, masked_weights in enumerate(self.W_masked_list):
                 # Keep adding activations from d time steps ago
                 # multiplied with weights of length d (as formalized in paper)
-                self.neuron_inputs += np.matmul(masked_weights, self.A[:, d] * self.n_type)
+                neuron_inputs += np.matmul(masked_weights, self.A[:, d] * self.n_type)
         else:
-            self.neuron_inputs = np.matmul(self.W, self.A[:, 0] * self.n_type) + self.WBias
+            neuron_inputs = np.matmul(self.W, self.A[:, 0] * self.n_type) + self.WBias
 
         # apply activation function
-        y = self.activation_func(self.neuron_inputs)
+        y = self.activation_func(neuron_inputs)
         self.A[:, 0] = (1 - self.decay) * self.A[:, 0] + self.decay * y
 
         # Input neuron is forced to input value

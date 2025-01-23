@@ -28,7 +28,7 @@ if __name__ == '__main__':
     ag = config['aggregate']
     narma_order = config['order']
 
-    prefix = "NARMA10_old"
+    prefix = "NARMA" + str(narma_order) + "_old"
 
     assert ag in [0, 1, 2], "for aggregate function choose 0 for mean, 1 for median and 2 for minimum"
     alphas = [10e-7, 10e-5, 10e-3]
@@ -81,7 +81,7 @@ if __name__ == '__main__':
 
     cluster_connectivity = np.ones((k + 1, k + 1))
     bias_scaling_start = np.ones((k + 1,)) * 0.5
-    weight_scaling_start = np.ones((k + 1, k + 1)) * .3
+    weight_scaling_start = np.ones((k + 1, k + 1)) * .6
     weight_scaling_start[0, 1] = 0.9
     decay_start = np.ones((k + 1,)) * .95
     activation = tanh_activation
@@ -104,8 +104,8 @@ if __name__ == '__main__':
     start_corr = np.ones((k,)) * 0.15
     start_var = np.random.uniform(start_var, start_var, (k, 2))
     inhib_start = np.ones((k,)) * 0
-    in_loc = (x_lim[0] + width * 0.3, y_lim[0] + height * 0.2)
-    conn_start = np.ones((k + 1, k + 1))
+    in_loc = start_mu[0]#(x_lim[0] + width * 0.3, y_lim[0] + height * 0.2)
+    conn_start = np.ones((k + 1, k + 1)) * .9
 
     if not delay:
         dt = dt_bl
@@ -147,8 +147,8 @@ if __name__ == '__main__':
     print("dt ", dt)
     print("B start real ", start_net.B)
 
-    # from simulator import NetworkSimulator
-    # sim = NetworkSimulator(start_net)
-    # sim.visualize(np.random.uniform(size=(1000,)))
+    from simulator import NetworkSimulator
+    sim = NetworkSimulator(start_net)
+    sim.visualize(np.random.uniform(size=(1000,)))
 
     evolution.cmaes_alg_gma_pop_timeseries_prediction(start_net, data_train, data_val, max_it, pop_size, std=std, dir=dir, name=filename, alphas=alphas)

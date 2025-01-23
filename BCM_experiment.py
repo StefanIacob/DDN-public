@@ -9,9 +9,11 @@ from evolution import cmaes_alg_gma_pop_signal_gen, cmaes_alg_gma_pop_signal_gen
 from datetime import date
 import matplotlib.pyplot as plt
 import os
+import sys
 from matplotlib.colors import LogNorm
 from sklearn import mixture
-import argparse
+import configparser
+from utils import read_config
 
 
 def GMM_plot(net):
@@ -47,7 +49,7 @@ def GMM_plot(net):
     plt.axis("tight")
     plt.show()
 
-def params_start_evolution_adaptive(N, var_delays, k, x_lim=None, y_lim=None, dt=.0005):
+def params_start_evolution_adaptive(N, k, x_lim=None, y_lim=None, dt=.0005):
     insize = 1
     outsize = N - insize
     x_range = x_lim
@@ -111,9 +113,7 @@ def params_start_evolution_adaptive(N, var_delays, k, x_lim=None, y_lim=None, dt
         'size_out': outsize,
         'in_loc': in_loc,
         'act_func': activation,
-        'dt': dt,
-        # 'theta_window': None,
-        'var_delays': var_delays
+        'dt': dt
     }
     return net_params
 
@@ -283,89 +283,112 @@ def get_mg_labels(mg_series, nr_of_steps):
 
 if __name__ == '__main__':
 
-    # TODO Experiments:
-    # - [ ] Granularity tau larger for testing
-    # -	[x] More or different parameters next to tau (try n, try at odd e.g. 7)
-    # -	[x] Fitness measure
-    # -	[ ] Even smaller error margin
-    # -	[ ] More of the same
+    # args = parser.parse_args()
+    config_p = configparser.ConfigParser()
+    config_p.read(sys.argv[1])
+    config_dict = read_config(config_p)
+    with open(sys.argv[1], 'r') as f:
+        config_s = f.read()
 
-    parser = argparse.ArgumentParser(description="Experiment configuration",
-                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-    parser.add_argument("-d", "--delay", action="store_true", help="Run experiment with delays")
-    parser.add_argument("-b", "--bcm", action="store_true", help="Run experiment with adaptive synapses")
-    parser.add_argument("-g", "--grow", action="store_true", help="Run experiment growing network")
-    parser.add_argument("-e", "--error-margin", action="store", default=.1,
-                        help="Define the blind prediction error margin in variance")
-    parser.add_argument("-t", "--tau_range", action="store", help="range of mackey-glass tau values to be used",
-                        nargs=2, type=float, default=[12, 22])
-    parser.add_argument("-n", "--exponent_range", action="store",
-                        help="range of mackey-glass exponent values to be used", nargs=2, type=float,
-                        default=[10, 10])
-    parser.add_argument("-k", "--clusters", action="store", help="number of GMM clusters to be used",
-                        type=int, default=5)
-    parser.add_argument("-nr", "--neurons", action="store", help="number of neurons", type=int, default=300)
-    parser.add_argument("-ag", "--aggregate", action="store",
-                        help="aggregate function for performance. 0 for mean, 1 for median and 2 for minimum",
-                        type=int, default=0)
+    r_seed = int(config_dict['general']['numpy_seed'])
+    np.random.seed(r_seed)
+    error_margin = float(config_dict['evolution']['error_margin'])
+    # ag = config['aggregate']
+    x_range = config_dict['network']['x_range_start']
+    y_range = config_dict['network']['y_range_start']
+    B_start = int(config_dict['network']['max_delay'])
+    propagation_vel = config_dict['network']['propagation_vel']
+    growing_net = config_dict['network']['growing']
+    delay = False
 
-    # np.random.seed(32)
-    args = parser.parse_args()
-    config = vars(args)
-    delay = config['delay']
-    growing_net = config['grow']
-    adaptive = config['bcm']
-    error_margin = float(config['error_margin'])
-    ag = config['aggregate']
+    prefix = "MG"
 
-    assert not(growing_net and not delay), "not possible to have a growing network without delay"
-    assert ag in [0, 1, 2], "for aggregate function choose 0 for mean, 1 for median and 2 for minimum"
-    alphas = [1e-8, 1e-6, 1e-4, 1e-2, 1]
-    mackey_glass = datasets.mackey_glass(5000)
-    aggregate = np.mean
-    ag_name = "mean_performance"
+    x_lim = x_range
+    y_lim = y_range
 
-    if ag == 1:
-        aggregate = np.median
-        ag_name = "meadian_performance"
-    if ag == 2:
-        aggregate = np.min
-        ag_name = "min_performance"
-
-    # mg_train = mackey_glass[:10000]
-    # mg_train = np.random.uniform(size=(10000,))
-    # mg_validate = mackey_glass[10000:]
-
-    N = config['neurons']
-    k = config['clusters']
-
-    B_start = 10
-    dt_delay = np.sqrt(8)/(B_start * propagation_vel)
-    x_lim = [-1, 1]
-    y_lim = [-1, 1]
-
-    dt_no_delay = (np.sqrt(8) / propagation_vel) * 2
+    if B_start > 1:
+        delay = True
 
     if growing_net:
-        x_lim = y_lim = None
+        delay = True
+        prefix += "_growing"
+        x_lim = None
+        y_lim = None
 
-    dt = dt_delay
-    if not delay and not adaptive:
-        dt = dt_no_delay
+    width = x_range[1] - x_range[0]
+    height = y_range[1] - y_range[0]
+    alphas = config_dict['readout']['regularization_parameters']
+    dt = np.sqrt(width ** 2 + height ** 2) / (B_start * propagation_vel)
+
+    N = int(config_dict['network']['n_neurons'])
+    k = int(config_dict['network']['n_clusters'])
+    start_mu = np.zeros((k, 2))
+    start_mu[:, :] = (0, 0)
+    start_var = 0.3
+    start_corr = np.ones((k,)) * 0
+    start_var = np.ones((k, 2)) * start_var
+    start_inhib = np.ones((k,)) * 0
+    in_loc = config_dict['network']['in_loc']
+    start_conn = np.ones((k + 1, k + 1))
+
+    genome_ranges = config_dict['genome ranges']
+    fixed_parameters = config_dict['fixed genome']
+    start_mix = np.ones((k,))
+    start_mix = softmax(start_mix)
+
+    cluster_connectivity = np.ones((k + 1, k + 1))
+    bias_scaling_start = np.ones((k + 1,)) * 0.5
+    bias_mean_start = np.zeros_like(bias_scaling_start)
+    weight_scaling_start = np.ones((k + 1, k + 1)) * .3
+    weight_scaling_start[0, 1] = 0.9
+    weight_mean_start = np.zeros((k + 1, k + 1))
+    decay_start = np.ones((k + 1,)) * .95
+
+    activation = None
+    if config_dict['network']['activation'] == 'tanh':
+        activation = tanh_activation
+    elif config_dict['network']['activation'] == 'sigmoid':
+        activation = sigmoid_activation
+
+    lr_mean = np.ones_like(weight_scaling_start) * 0
+    lr_scaling = np.ones_like(lr_mean) * 0
+    y0_mean = np.ones_like(bias_mean_start) * 0
+    y0_scaling = np.ones_like(bias_mean_start) * 0
+
+    insize = 1
+    outsize = N - insize
 
     print('Building starting network...')
+    net_params = {
+        'N': N,
+        'mix': start_mix,
+        'mu': start_mu,
+        'variance': start_var,
+        'correlation': start_corr,
+        'inhibitory': start_inhib,
+        'connectivity': start_conn,
+        'cluster_connectivity': cluster_connectivity,
+        'weight_scaling': weight_scaling_start,
+        'weight_mean': weight_mean_start,
+        'bias_scaling': bias_scaling_start,
+        'bias_mean': bias_mean_start,
+        'lr_mean': lr_mean,
+        'lr_scaling': lr_scaling,
+        'y0_mean': y0_mean,
+        'y0_scaling': y0_scaling,
+        'x_lim': x_lim,
+        'y_lim': y_lim,
+        'decay': decay_start,
+        'size_in': insize,
+        'size_out': outsize,
+        'in_loc': in_loc,
+        'act_func': activation,
+        'dt': dt,
+        'propagation_vel': propagation_vel,
+        'param_ranges': genome_ranges,
+        'fixed_params': fixed_parameters
+    }
 
-    if adaptive:
-        net_params = params_start_evolution_adaptive (N=N, dt=dt, x_lim=x_lim, y_lim=y_lim, var_delays=delay, k=k)
-        start_net = populations.GMMPopulationAdaptive(**net_params)
-    else:
-        net_params = params_start_evolution(N, dt=dt, k=k, x_lim=x_lim, y_lim=y_lim)
-        start_net = populations.GMMPopulation(**net_params)
-
-    mackey_glass[100:] = 0
-    sim = NetworkSimulator(start_net)
-    sim.get_network_data(mackey_glass)
-    sim.visualize(mackey_glass)
     gens = 200
     pop_size = 20
     dir_1 = 'ADDN_further_experiments'

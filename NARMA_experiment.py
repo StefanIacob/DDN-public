@@ -138,9 +138,9 @@ if __name__ == '__main__':
 
     start_net = populations.GMMPopulationAdaptive(**net_params)
 
-    # from simulator import NetworkSimulator
-    # sim = NetworkSimulator(start_net)
-    # sim.visualize(np.random.uniform(size=(1000,)))
+    from simulator import NetworkSimulator
+    sim = NetworkSimulator(start_net)
+    sim.visualize(np.random.uniform(size=(1000,)))
 
     dir1 = config_dict['save file']['directory']
     suffix = config_dict['save file']['dirname_suffix']
