@@ -970,7 +970,7 @@ def network_memory_capacity(network, max_delay, sequence_length, z_function=None
         m_cap = memory_capacity(network, max_delay, sequence_length, z_function, warmup_time, alphas)
         total_m_cap.append(m_cap)
 
-    return np.mean(total_m_cap, axis=0)
+    return total_m_cap
 
 
 def memory_capacity(network, max_delay, sequence_length, z_function=None, warmup_time=400, alphas=[1, 10, 100]):
