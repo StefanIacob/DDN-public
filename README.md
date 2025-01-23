@@ -18,3 +18,4 @@ Optimizing DDNs, ADDNs, adaptive ESNs or baseline ESNs for Mackey-Glass tasks ca
 All paper figures can be reproduced using the included [jupyter notebook](analysis.ipynb).
 
 ## Visual Example
+See [visual_example.py]([visual_example.py]) for a DDN or ESN (either random or optimized) simulated with a GUI, visually showing differences in network responses to various inputs. 
