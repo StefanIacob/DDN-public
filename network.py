@@ -1,5 +1,5 @@
 import numpy as np
-import config
+from config import propagation_vel
 
 
 class DistDelayNetwork(object):
@@ -11,7 +11,7 @@ class DistDelayNetwork(object):
     def __init__(self, weights, bias, n_type, coordinates, decay,
                  input_n=np.array([0, 1, 2]), output_n=np.array([-3, -2, -1]),
                  activation_func=None, dt=0.0005, theta_window=None, theta_y0=None,
-                 lr=1, propagation_vel = 30):
+                 lr=1):
 
         self.x_range = (np.min(coordinates[:, 0]), np.max(coordinates[:, 0]))
         self.y_range = (np.min(coordinates[:, 1]), np.max(coordinates[:, 1]))
@@ -221,7 +221,7 @@ class DistDelayNetwork(object):
         fraction_of_max = max_current_dist / max_possible_dist
 
         ds = max_current_dist / new_max_delay  # distance discretized step
-        new_dt = ds / config.propagation_vel
+        new_dt = ds / propagation_vel
 
         new_buffersize = int(np.ceil(new_max_delay / fraction_of_max) + 1)
 
@@ -256,7 +256,7 @@ class DistDelayNetwork(object):
 
         activation_energy_per_n = self.A[:, 0] * activation_cost
         synapse_energy_per_n = np.matmul(np.absolute(sum(self.W_masked_list)), self.A[:, 0]) * synapse_cost
-        propagation_energy_per_n = np.matmul(self.D * self.dt * config.propagation_vel, self.A[:, 0]) * propagation_cost
+        propagation_energy_per_n = np.matmul(self.D * self.dt * propagation_vel, self.A[:, 0]) * propagation_cost
 
         total_activation_energy = np.sum(activation_energy_per_n)
         total_synapse_energy = np.sum(synapse_energy_per_n)

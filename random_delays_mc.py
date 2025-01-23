@@ -1,7 +1,7 @@
 import pickle as pkl
 import numpy as np
 import argparse
-from populations import GMMPopulation, GMMPopulationOld
+from populations import GMMPopulation, GMMPopulationOld, GMMPopulationAdaptive
 from utils import memory_capacity
 from config import propagation_vel
 from network import DistDelayNetwork
@@ -36,8 +36,17 @@ def esn_to_random_delay_ddn(evolved_esn, in_loc):
                                             evolved_esn.autapse,
                                             .0005, evolved_esn.x_lim, evolved_esn.y_lim,
                                             evolved_esn.fixed_delay)
+
+    elif type(evolved_esn) == GMMPopulationAdaptive: # Assumes unsupervised training has been done already
+        added_delays_net = GMMPopulationAdaptive(evolved_esn.N, mix, mu, var, corr, evolved_esn.inhibitory,
+                                                 evolved_esn.connectivity, evolved_esn.cluster_connectivity,
+                                                 evolved_esn.weight_scaling, evolved_esn.weight_mean,
+                                                 evolved_esn.bias_scaling, evolved_esn.bias_mean,
+                                                 evolved_esn.decay, evolved_esn.lr_mean, evolved_esn.lr_scaling,
+                                                 evolved_esn.y0_mean, evolved_esn.y0_scaling, evolved_esn.size_in,
+                                                 evolved_esn.size_out, in_loc, evolved_esn.act_func, dt=0.0005)
     else:
-        raise TypeError('evolved_esn should be GMMPopulation or GMMPopulationOld')
+        raise TypeError('evolved_esn should be GMMPopulation, GMMPopulationOld, or GMMPopulationAdaptive')
 
     return added_delays_net
 

@@ -12,6 +12,7 @@ Code for CMA-ES hyperparameter optimisation is included for two benchmark tasks
 Optimizing DDNs or baseline ESNs for NARMA tasks can be done by running [NARMA_experiment.py](NARMA_experiment.py) with the appropriate parameters. Results from previous optimization runs can be found in [NARMA-10_results_23](NARMA-10_results_23) and [NARMA-30_results_23](NARMA-30_results_23), also used in the [analysis notebook](analysis.ipynb) to generate paper figures.
 
 ### Mackey-Glass
+Optimizing DDNs, ADDNs, adaptive ESNs or baseline ESNs for Mackey-Glass tasks can be done by running [mg_experiment.py](mg_experiment.py) with the appropriate parameters. Results from previous optimization runs can be found in [ADDN_further_experiments](ADDN_further_experiments), also used in the [analysis notebook](analysis.ipynb) to generate paper figures.
 
 ## Paper Figures and data analysis
 All paper figures can be reproduced using the included [jupyter notebook](analysis.ipynb).

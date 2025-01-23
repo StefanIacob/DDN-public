@@ -263,9 +263,8 @@ def cmaes_alg_gma_pop_signal_gen_adaptive(start_net, n_unsupervised,
                                           save_every=1,
                                           dir='es_results', name='cma_es_gmm_test', alphas=[10e-14, 10e-13, 10e-12],
                                           n_seq_unsupervised=5, n_seq_supervised=5, n_seq_validation=5, error_margin=.1,
-                                          tau_range=[12, 22], n_range=[5,15], fitness_function=None, activation_cost=.005,
-                                          synapse_cost=.001,
-                                          propagation_cost=.005, aggregate=np.mean):
+                                          tau_range=[12, 22], n_range=[5,15], fitness_function=None, aggregate=np.mean):
+
     params = start_net.get_serialized_parameters()
     opts = cma.CMAOptions()
     opts['maxiter'] = max_it
@@ -307,17 +306,11 @@ def cmaes_alg_gma_pop_signal_gen_adaptive(start_net, n_unsupervised,
         pickle.dump(data, file)
         file.close()
 
-
-    random_gen = np.random.default_rng(seed=42)
     while not es.stop():
         candidate_solutions = es.ask()
         for c, cand in enumerate(candidate_solutions):
-            # train_score_cand = np.zeros((nr_of_evals, len(lag_grid)))
-            # val_score_cand = np.zeros((nr_of_evals, len(lag_grid)))
-
             param_hist[gen, c, :] = cand
             std_hist[gen] = es.sigma
-            # net_models = {}
 
             for rep in range(eval_reps):
                 # Make sure to resample (i.e. re-generate) a network for every repetition
@@ -328,26 +321,10 @@ def cmaes_alg_gma_pop_signal_gen_adaptive(start_net, n_unsupervised,
                                                                                       n_validation, alphas=alphas,
                                                                                       tau_range=tau_range, n_range=n_range,
                                                                                       x0_range=x0_range)
-                # validation_horizon, model, energy = eval_candidate_signal_gen_multiple_random_sequences_adaptive_budget(new_net,
-                #                                                                                          n_seq_unsupervised,
-                #                                                                                          n_seq_supervised,
-                #                                                                                          n_seq_validation,
-                #                                                                                          n_unsupervised,
-                #                                                                                          n_supervised,
-                #                                                                                          n_validation,
-                #                                                                                          alphas=alphas,
-                #                                                                                          tau_range=tau_range,
-                #                                                                                          n_range=n_range,
-                #                                                                                          x0_range=x0_range,
-                #                                                                                          activation_cost=activation_cost,
-                #                                                                                          synapse_cost=synapse_cost,
-                #                                                                                          propagation_cost=propagation_cost
-                #                                                                                                     )
+
                 val_hist[gen, c, rep] = validation_horizon
                 energy_hist[gen, c, rep] = energy
-                # net_models[rep] = {'net': new_net, 'regression models': models_lags}
 
-            # save_net(net_models, gen, c)
         # save every m iterations
         if (gen + 1) % save_every == 0:
             save(new_net)

@@ -45,7 +45,6 @@ if __name__ == '__main__':
 
     insize = 1
     outsize = N - insize
-    # np.random.seed(42)
     if narma_order == 30:
         data_train = np.array(createNARMA30(8000)).reshape((2, 8000))
         data_val = np.array(createNARMA30(4000)).reshape((2, 4000))
@@ -81,7 +80,7 @@ if __name__ == '__main__':
     start_corr = np.ones((k,)) * 0.15
     start_var = np.random.uniform(start_var, start_var, (k, 2))
     inhib_start = np.ones((k,)) * 0
-    in_loc = start_mu[0]  # (x_lim[0] + width * 0.3, y_lim[0] + height * 0.2)
+    in_loc = start_mu[0]
     conn_start = np.ones((k + 1, k + 1)) * .9
 
     if not delay:
