@@ -7,24 +7,21 @@ import pickle
 import os
 from reservoirpy import datasets
 
-
-def cmaes_alg_gma_pop_timeseries_prediction(start_net, train_data, val_data, exp_config, save_every=1, dir='es_results',
-                                            name='cma_es_gmm_test'):
+def cmaes_alg_gma_pop_timeseries_prediction(start_net, train_data, val_data, max_it, pop_size, eval_reps=5,
+                                            lag_grid=range(0, 15), std=0.3, save_every=1, dir='es_results',
+                                            name='cma_es_gmm_test', alphas=[10e-14, 10e-13, 10e-12]):
+    # order: mix, mu_x, mu_y, var_x, var_y, corr_xy, conn, weight_scaling, bias_scaling, decay
 
     params = start_net.get_serialized_parameters()
     opts = cma.CMAOptions()
-    max_it = int(exp_config['evolution']['n_generations'])
-    pop_size = int(exp_config['evolution']['population_size'])
-    eval_reps = int(exp_config['evolution']['evaluation_reps_per_candidate'])
     opts['maxiter'] = max_it
     opts['popsize'] = pop_size
-    std = exp_config['evolution']['std']
     es = cma.CMAEvolutionStrategy(params, std, opts)
-    lag_grid = range(0, int(exp_config['evolution']['max_lag']))
+
     param_hist = np.zeros((max_it, pop_size, len(params)))
     val_hist = np.zeros((max_it, pop_size, eval_reps, len(lag_grid)))
     std_hist = np.zeros((max_it,))
-    alphas = exp_config['readout']['regularization_parameters']
+
     gen = 0
 
     def save(net):
@@ -36,28 +33,16 @@ def cmaes_alg_gma_pop_timeseries_prediction(start_net, train_data, val_data, exp
             'example net': net,
             'train data': train_data,
             'validation data': val_data,
-            'configuration': exp_config,
+            'alpha grid': alphas,
             'start net': start_net
         }
         file = open(dir + '/' + name + '.p', "wb")
         pickle.dump(data, file)
         file.close()
 
-    def save_net(data, gen, c):
-        net_dir = dir + '/' + name + '_nets/gen_' + str(gen)
-        if not os.path.exists(net_dir):
-            os.makedirs(net_dir)
-        nets_file = dir + '/' + name + '_nets/gen_' + str(gen) + '/' + str(c) + '.p'
-        nets_file = open(nets_file, "wb")
-        pickle.dump(data, nets_file)
-        nets_file.close()
-
     while not es.stop():
         candidate_solutions = es.ask()
         for c, cand in enumerate(candidate_solutions):
-            # train_score_cand = np.zeros((nr_of_evals, len(lag_grid)))
-            # val_score_cand = np.zeros((nr_of_evals, len(lag_grid)))
-
             param_hist[gen, c, :] = cand
             std_hist[gen] = es.sigma
 
@@ -65,15 +50,11 @@ def cmaes_alg_gma_pop_timeseries_prediction(start_net, train_data, val_data, exp
                 # Make sure to resample (i.e. re-generate) a network for every repetition
                 new_net = start_net.get_new_network_from_serialized(cand)
                 _, val_scores_lags, _ = eval_candidate_lag_gridsearch_NARMA(new_net,
-                                                                                      train_data,
-                                                                                      val_data,
-                                                                                      lag_grid=lag_grid,
-                                                                                      alphas=alphas)
+                                                                              train_data,
+                                                                              val_data,
+                                                                              lag_grid=lag_grid,
+                                                                              alphas=alphas)
                 val_hist[gen, c, rep, :] = val_scores_lags
-
-                # net_models[rep] = {'net': new_net, 'regression models': models_lags}
-
-            # save_net(net_models, gen, c)
 
         # save every m iterations
         if (gen + 1) % save_every == 0:
@@ -92,7 +73,6 @@ def cmaes_alg_gma_pop_timeseries_prediction(start_net, train_data, val_data, exp
         print('Gen ', gen)
         gen += 1
     es.result_pretty()
-
 
 def cmaes_alg_gma_pop_signal_gen(start_net, train_data, val_data, max_it, pop_size, eval_reps=5, std=0.3, save_every=1,
                                  dir='es_results', name='cma_es_gmm_test', alphas=[10e-14, 10e-13, 10e-12]):
