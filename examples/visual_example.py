@@ -15,8 +15,8 @@ if __name__ == '__main__':
     # Load optimized DDN
     # opt_path_ddn = "ADDN_further_experiments/Results N300 K5/2023-08-24_delay_True_bcm_False_growing_False.p"
     # opt_path_esn = "ADDN_further_experiments/Results N300 K5/2023-08-24_delay_False_bcm_False_growing_False.p"
-    opt_path_ddn = "NARMA-30_results_23/NARMA30_old_ddn_results_n101_k4_date_2023-12-11.p"
-    opt_path_esn = "NARMA-30_results_23/NARMA30_old_bl_results_n101_k4_date_2024-03-18.p"
+    opt_path_ddn = "../NARMA-30_results_23/NARMA30_old_ddn_results_n101_k4_date_2023-12-11.p"
+    opt_path_esn = "../NARMA-30_results_23/NARMA30_old_bl_results_n101_k4_date_2024-03-18.p"
     opt_path = opt_path_esn
     if delay:
         opt_path = opt_path_ddn
