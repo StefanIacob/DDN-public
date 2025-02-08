@@ -108,7 +108,7 @@ class DistDelayNetworkOld(object):
         Returns: None
         """
         self.W_masked_list.clear()
-        for buffStep in range(np.max(self.D) + 1):
+        for buffStep in range(np.max(self.D)):
             # Create mask for each buffer step
             mask = self.D == buffStep
             # Elementwise product with buffer mask to only add activity to correct buffer step
@@ -118,7 +118,7 @@ class DistDelayNetworkOld(object):
     def compute_masked_lr(self):
         self.lr_masked_list.clear()
         excitatory_pre = np.repeat(np.expand_dims(np.array(self.n_type > 0, dtype='uint8'), 0), self.N, axis=0)
-        for buffStep in range(np.max(self.D) + 1):
+        for buffStep in range(np.max(self.D)):
             # fix zero weights
             buffLr = self.lr * np.array(self.W_masked_list[buffStep] > 0, dtype='uint8')
             # only update weights with excitatory presynaptic units

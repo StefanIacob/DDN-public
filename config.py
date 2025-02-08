@@ -3,10 +3,10 @@ import numpy as np
 propagation_vel = 30  # m/s
 
 
-def get_p_dict_like_p3(K, x_range, y_range, start_location_var=0.003, start_location_mean_var=0):
+def get_p_dict_like_p3_NARMA(K, x_range, y_range, start_location_var=0.003, start_location_mean_var=0):
     """
     Generates a dictionary of DDN hyperparameters with corresponding evolution rules, similar to the configuration of
-    the experiment presented in https://github.com/StefanIacob/DDN-public/
+    the experiment presented in https://github.com/StefanIacob/DDN-public/, for the NARMA exeperiments.
 
     Returns: parameter dictionary
     """

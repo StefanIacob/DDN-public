@@ -499,16 +499,16 @@ def continue_cmaes_adaptive(dir, name,
     es.result_pretty()
 
 
-def cmaes_alg_gma_pop_signal_gen_adaptive(start_net, n_unsupervised,
-                                          n_supervised,
-                                          n_validation, max_it, pop_size,
-                                          eval_reps=5, std=0.3,
-                                          save_every=1,
-                                          dir='es_results', name='cma_es_gmm_test', alphas=[10e-14, 10e-13, 10e-12],
-                                          n_seq_unsupervised=5, n_seq_supervised=5, n_seq_validation=5, error_margin=.1,
-                                          tau_range=[12, 22], n_range=[5,15], fitness_function=None, activation_cost=.005,
-                                          synapse_cost=.001,
-                                          propagation_cost=.005, aggregate=np.mean):
+def cmaes_mackey_glass_signal_gen_adaptive(start_net, n_unsupervised,
+                                           n_supervised,
+                                           n_validation, max_it, pop_size,
+                                           eval_reps=5, std=0.3,
+                                           save_every=1,
+                                           dir='es_results', name='cma_es_gmm_test', alphas=[10e-14, 10e-13, 10e-12],
+                                           n_seq_unsupervised=5, n_seq_supervised=5, n_seq_validation=5, error_margin=.1,
+                                           tau_range=[12, 22], n_range=[5,15], fitness_function=None, activation_cost=.005,
+                                           synapse_cost=.001,
+                                           propagation_cost=.005, aggregate=np.mean):
     params = start_net.get_serialized_parameters()
     opts = cma.CMAOptions()
     opts['maxiter'] = max_it
