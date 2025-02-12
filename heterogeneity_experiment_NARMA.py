@@ -19,6 +19,7 @@ if __name__ == '__main__':
                         type=int, default=300)
     parser.add_argument("-dd", "--distributed_decay", action="store_true", help="Distributed decay")
     parser.add_argument("-cd", "--cluster_decay", action="store_true", help="Different decay per cluster")
+    parser.add_argument("-fd", "--fixed_delays", action="store_true", help="don't optimize delays")
     parser.add_argument("-s", "--suffix", action="store", help="filename suffix", type=str, default='')
 
     args = parser.parse_args()
@@ -32,7 +33,9 @@ if __name__ == '__main__':
     # decay/leak rate
     per_cluster_decay = config['cluster_decay']  # False for network wide decay parameters, True for
     # cluster-specific parameters
-    suffix = config['suffix'] # Added at the end of save filename
+    fixed_delays = config['fixed_delays']  # Keep location configuration fixed to initial values
+    suffix = config['suffix']  # Added at the end of save filename
+
     if len(suffix) > 0:
         suffix = '_' + suffix
     net_type_name = 'BL'
@@ -72,6 +75,14 @@ if __name__ == '__main__':
         p_dict['decay_mean']['val'] = np.array([0.95])
         p_dict['decay_scaling']['val'] = np.array([p_dict['decay_scaling']['val'][0]])
 
+    if fixed_delays:
+        # Let the spatial configurations of the network fixed throughout evolution
+        suffix += '_fixed_delays'
+        p_dict['mu_x']['evolve'] = False
+        p_dict['mu_y']['evolve'] = False
+        p_dict['variance_x']['evolve'] = False
+        p_dict['variance_y']['evolve'] = False
+        p_dict['correlation']['evolve'] = False
 
     activation_func = tanh_activation
     start_net = FlexiblePopulation(N, x_range, y_range, dt, in_loc, size_in, size_out,

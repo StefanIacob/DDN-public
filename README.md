@@ -13,9 +13,10 @@ Code for NARMA hyperparameter optimisation using CMA-ES can be seen in
 - `-nr <nr of neurons>`/`--neurons <nr of neurons>`: Number of neurons to be used in the reservoir
 - `-dd`/`--distributed_decay`: if added, optimize both mean and variance for decay/leak parameter, otherwise only mean, 
   with variance set fixed to 0.
-- `cd`/`--cluster_decay`: if added, decay/leak parameters are optimized for each sub-reservoir separately. Otherwise,
+- `-cd`/`--cluster_decay`: if added, decay/leak parameters are optimized for each sub-reservoir separately. Otherwise,
   single set of decay parameter for the whole network is used.
-- `s`/`--suffix`: String is added to the end of the savefile. Useful to differentiate between repetitions of the 
+- `-fd`/`--fixed_delays`: if added, delays are left to their initial distributions and not optimized during evolution
+- `-s`/`--suffix`: String is added to the end of the savefile. Useful to differentiate between repetitions of the 
   same experiments
 
 ## Examples
