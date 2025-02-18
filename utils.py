@@ -109,6 +109,16 @@ def createNARMA(length=10000, system_order=10, coef=[.3, .05, 1.5, .1]):
                          coef[2] * inputs[k - (system_order - 1)] * inputs[k] + coef[3]
     return inputs, outputs
 
+def createNARMAFromInput(inputs, system_order=10, coef=[.3, .05, 1.5, .1]):
+    # inputs should be uniform in range -.5, .5
+    length = len(inputs)
+    outputs = np.zeros((length, 1))
+    for k in range(system_order - 1, length - 1):
+        outputs[k + 1] = coef[0] * outputs[k] + coef[1] * \
+                         outputs[k] * np.sum(outputs[k - (system_order - 1):k + 1]) + \
+                         coef[2] * inputs[k - (system_order - 1)] * inputs[k] + coef[3]
+    return outputs
+
 
 def createNARMA10(length=10000):
     return createNARMA(length=length, system_order=10, coef=[.3, .05, 1.5, .1])

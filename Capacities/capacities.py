@@ -17,6 +17,9 @@ import math
 import numpy
 import numpy as np
 
+# Code written by Joni Dambre
+
+
 def test_loading():
     print("Capacity library loaded")
 
@@ -279,7 +282,6 @@ class capacity_iterator():
         
         # Normalise state matrix
         estates = states - np.mean(states,axis=0)
-        print('test')
         estates/= (np.std(estates,axis=0) + 0.000000001) # added small value for division with zero
         
         samples=estates.shape[0]
