@@ -1016,22 +1016,13 @@ def memory_capacity(network, max_delay, sequence_length, z_function=None, warmup
         m_caps.append(MC)
 
     return m_caps
-#
-# def baseline2DDN(baseline_net):
-#     k = evolved_bl_net.k
-#
-#     mix = np.ones((k,))
-#     mix = softmax(mix)
-#
-#     var = np.ones((k, 2)) * 0.1
-#     corr = np.ones((k,)) * 0
-#     mu = np.zeros((k, 2))
-#
-#     added_delays_net = populations.GMMPopulation(evolved_bl_net.N, mix, mu, var, corr, evolved_bl_net.inhibitory,
-#                                                  evolved_bl_net.connectivity, evolved_bl_net.cluster_connectivity,
-#                                                  evolved_bl_net.weight_scaling, evolved_bl_net.weight_mean,
-#                                                  evolved_bl_net.bias_scaling, evolved_bl_net.bias_mean,
-#                                                  evolved_bl_net.decay, evolved_bl_net.size_in, evolved_bl_net.size_out,
-#                                                  (0, 0), evolved_bl_net.activation_func, evolved_bl_net.autapse,
-#                                                  .0025, evolved_bl_net.x_lim, evolved_bl_net.y_lim,
-#                                                  evolved_bl_net.fixed_delay)
+
+def autocorrelation(data, max_lag):
+    autocorrs = [1]
+
+    for i in range(1, max_lag):
+        current_data = data[:-i, 0]
+        lagged_data = data[i:, 0]
+        autocorr = np.corrcoef(current_data, lagged_data)[0, 1]
+        autocorrs.append(autocorr)
+    return autocorrs
