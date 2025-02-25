@@ -1,45 +1,9 @@
-# dist-delay-net
-This repository contains the code, data and analysis discussed in the distance-based delay networks
-paper [Exploiting Signal Propagation Delays to Match Task Memory Requirements in Reservoir Computing](https://doi.org/10.3390/biomimetics9060355).
+# Distance-Based Delays in Echo State Networks
+This branch contains the code version and analysis related to 
+[the 2022 paper](https://link.springer.com/chapter/10.1007/978-3-031-21753-1_21). Since then, several 
+changes in 
+network design have been made on the main branch, causing problems in reproducing the older results.
 
-Analysis for the paper [Memory–Non-Linearity Trade-Off in Distance-Based Delay Networks](https://www.mdpi.com/2313-7673/9/12/755) 
-is based on the same evolved networks, and can be found in [IPC-Analysis.ipynb](IPC-Analysis.ipynb). Contents of 
-this notebook are still being cleaned up and annotated.
+Hyperparameter evolution experiment Can be run from [main.py](main.py).
 
-Analysis for the initial [2022 paper on DDNs](https://link.springer.com/chapter/10.1007/978-3-031-21753-1_21) is shown 
-in TODO: make new branch.
-
-## Dependencies
-pip install requirements.txt
-
-## Hyperparameter Optimisation
-Code for CMA-ES hyperparameter optimisation is included for two benchmark tasks
-
-### NARMA
-Optimizing DDNs or baseline ESNs for NARMA tasks can be done by running [NARMA_experiment.py](NARMA_experiment.py) with
-the appropriate parameters. Results from previous optimization runs can be found
-in [NARMA-10_results_23](NARMA-10_results_23) and [NARMA-30_results_23](NARMA-30_results_23), also used in
-the [analysis notebook](MC-Analysis.ipynb) to generate paper figures.
-
-### Mackey-Glass
-Optimizing DDNs, ADDNs, adaptive ESNs or baseline ESNs for Mackey-Glass tasks can be done by
-running [mg_experiment.py](mg_experiment.py) with the appropriate parameters. Results from previous optimization runs
-can be found in [ADDN_further_experiments](ADDN_further_experiments), also used in
-the [analysis notebook](MC-Analysis.ipynb) to generate paper figures.
-
-## Paper Figures and data analysis
-All paper figures can be reproduced using the included [jupyter notebook](MC-Analysis.ipynb).
-
-## Visual Example
-See [visual_example.py]([examples/visual_example.py]) for a DDN or ESN (either random or optimized) simulated with a
-GUI, visually showing differences in network responses to various inputs. 
-
-## IPC
-Information processing capacity (IPC) is used in 
-[Exploiting Signal Propagation Delays to Match Task Memory Requirements in Reservoir Computing](https://doi.org/10.3390/biomimetics9060355).
-To understand how this is computed, and how to use the [capacities tools](Capacities/capacities.py), have a look at 
-[capacitiesExample.ipynb](capacitiesExample.ipynb).
-
-Code for computing IPC can be found in [Capacities](Capacities) folder, written by prof. dr. Joni Dambre, published in 
-[Dambre, Joni, David Verstraeten, Benjamin Schrauwen, and Serge Massar. “Information Processing Capacity of Dynamical Systems.” Scientific Reports 2, no. 1 (July 19, 2012): 514.
-](https://doi.org/10.1038/srep00514)
+Analysis of results is presented in [the included ipynb](DDN-2022-paper-analysis.ipynb).
