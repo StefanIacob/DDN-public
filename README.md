@@ -7,7 +7,8 @@ is based on the same evolved networks, and can be found in [IPC-Analysis.ipynb](
 this notebook are still being cleaned up and annotated.
 
 Analysis for the initial [2022 paper on DDNs](https://link.springer.com/chapter/10.1007/978-3-031-21753-1_21) is shown 
-in TODO: make new branch.
+in the [2022-paper branch](https://github.com/StefanIacob/DDN-public/tree/2022-paper) as it requires an older 
+version of the code.
 
 ## Dependencies
 pip install requirements.txt
