@@ -32,7 +32,10 @@ if __name__ == '__main__':
     if len(val_results.shape) == 4:
         narma_task = True
 
-    n_sequences_unsupervised = results_dict['number of sequences']['unsupervised']
+    n_sequences_unsupervised = 0
+    if not narma_task:
+        n_sequences_unsupervised = results_dict['number of sequences']['unsupervised']
+
     if narma_task:
         scores = np.mean(np.min(val_results, axis=-1), axis=-1)
     else:
