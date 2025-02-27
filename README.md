@@ -32,15 +32,18 @@ the [analysis notebook](analysis-notebooks/MC-Analysis.ipynb) to generate paper 
 Example code for how to test best optimized networks shown in [testOptimized.py](examples/testOptimized.py)
 
 ## Paper Figures and data analysis
-All paper figures can be reproduced using the included [jupyter notebook](analysis-notebooks/MC-Analysis.ipynb).
+All paper figures can be reproduced using the included notebooks:
+- [Exploiting Signal Propagation Delays to Match Task Memory Requirements in Reservoir Computing](https://www.mdpi.com/2313-7673/9/6/355): [analysis notebook](analysis-notebooks/MC-Analysis.ipynb).
+- [Memory–Non-Linearity Trade-Off in Distance-Based Delay Networks](https://www.mdpi.com/2313-7673/9/12/755): 
+[analysis notebook](analysis-notebooks/IPC-Analysis.ipynb)
 
 ## Visual Example
 See [visual_example.py]([examples/visual_example.py]) for a DDN or ESN (either random or optimized) simulated with a
 GUI, visually showing differences in network responses to various inputs. 
 
 ## IPC
-Information processing capacity (IPC) is used in 
-[Exploiting Signal Propagation Delays to Match Task Memory Requirements in Reservoir Computing](https://doi.org/10.3390/biomimetics9060355).
+Information processing capacity (IPC) is used in the
+[2024 paper](https://www.mdpi.com/2313-7673/9/12/755).
 To understand how this is computed, and how to use the [capacities tools](Capacities/capacities.py), have a look at 
 [capacitiesExample.ipynb](examples/capacitiesDDNExample.ipynb).
 

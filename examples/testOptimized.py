@@ -32,9 +32,14 @@ EXPERIMENT_DATA = {
 def load_data(data_dict):
     for net_type in data_dict:
         path = data_dict[net_type]['path']
-        with open(path, 'rb') as f:
-            data = pkl.load(f)
-            data_dict[net_type]['es_dict'] = data
+        try:
+            with open(path, 'rb') as f:
+                data = pkl.load(f)
+                data_dict[net_type]['es_dict'] = data
+        except:
+            with open('../' + path, 'rb') as f:
+                data = pkl.load(f)
+                data_dict[net_type]['es_dict'] = data
 
 
 def test_optimized(data_dict, resamples, data_train, data_test):
@@ -100,7 +105,13 @@ if __name__ == '__main__':
         load_data(EXPERIMENT_DATA[task_name])
         task_results = test_optimized(EXPERIMENT_DATA[task_name], network_resamples, data_train, data_test)
         filename = 'test_' + task_name + '_' +  str(date.today()) + '.p'
-        save_path = '../results/' + task_name + '_results_23/' + filename
-        print('Testing ' + task_name + ' finished, saving test results as ' + save_path)
-        with open(save_path, 'wb') as f:
-            pkl.dump(task_results, f)
+        try:
+            save_path = '../results/' + task_name + '_results_23/' + filename
+            print('Testing ' + task_name + ' finished, saving test results as ' + save_path)
+            with open(save_path, 'wb') as f:
+                pkl.dump(task_results, f)
+        except Exception as e:
+            save_path = 'results/' + task_name + '_results_23/' + filename
+            print('Failed, saving test results as ' + save_path)
+            with open(save_path, 'wb') as f:
+                pkl.dump(task_results, f)

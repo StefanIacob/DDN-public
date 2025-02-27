@@ -1,6 +1,7 @@
 import numpy as np
 from simulator import NetworkSimulator
 from scipy.stats import norm
+import scipy
 from sklearn.linear_model import Ridge, RidgeCV
 from sklearn.model_selection import KFold
 import matplotlib.pyplot as plt
@@ -8,24 +9,8 @@ import pickle as pkl
 from reservoirpy import datasets
 from populations import GMMPopulationAdaptive
 import random
+from Capacities.capacities import legendre_incremental, generate_task, cov_capacity
 
-def read_config(config_parser):
-
-    config_dict = {}
-    for section in config_parser.sections():
-        section_dict = {}
-        for key, val in config_parser.items(section):
-            if not (section == 'save file' or key == 'activation' or key == 'growing' or section == 'fixed genome'):
-                if "," in val:
-                    val = list(map(float, val.split(',')))
-                else:
-                    val = float(val)
-            elif section == 'fixed genome' or key == 'growing':
-                val = val == "True"
-            section_dict[key] = val
-        config_dict[section] = section_dict
-
-    return config_dict
 
 def mse(target_signal, input_signal):
     """
@@ -129,7 +114,7 @@ def createNARMA30(length=10000):
 
 
 def eval_candidate_lag_gridsearch_NARMA(network, train_data, val_data, warmup=400,
-                                        lag_grid=range(0, 15), alphas=[10e-14, 10e-13, 10e-12]):
+                                        lag_grid=range(0, 15), alphas=[10e-14, 10e-13, 10e-12], return_states=False):
     assert np.all(np.array(lag_grid) >= 0), 'No negative lag allowed'
 
     train_input = train_data[0, warmup:]
@@ -176,6 +161,9 @@ def eval_candidate_lag_gridsearch_NARMA(network, train_data, val_data, warmup=40
         val_performance_per_lag.append(val_performance)
         train_performance_per_lag.append(train_performance)
         model_per_lag[lag] = model
+
+    if return_states:
+        return train_performance_per_lag, val_performance_per_lag, model_per_lag, train_net_act, val_net_act
 
     return train_performance_per_lag, val_performance_per_lag, model_per_lag
 
@@ -1026,3 +1014,73 @@ def autocorrelation(data, max_lag):
         autocorr = np.corrcoef(current_data, lagged_data)[0, 1]
         autocorrs.append(autocorr)
     return autocorrs
+
+def act_dimensionality(network_activity, variance_threshold=.95):
+    _, s, _ = np.linalg.svd(network_activity)
+    dim = 0
+    var_explained = 0
+    while var_explained < variance_threshold:
+        var_explained = np.sum(s[:dim + 1]) / np.sum(s)
+        dim += 1
+    return dim
+
+
+def genotype_dimensionality(network, net_input, measuring_reps, variance_threshold=.95, warmup=400):
+    dims = []
+    serialized_parameters = network.get_serialized_network_parameters()
+
+    for rep in range(measuring_reps):
+        # resample_network
+        network = network.get_new_evolvable_population_from_serialized(serialized_parameters)
+        sim = NetworkSimulator(network)
+        sim.warmup(net_input[:warmup])
+        net_act = sim.get_network_data(net_input[warmup:])
+        dim = act_dimensionality(net_act, variance_threshold=variance_threshold)
+        dims.append(dim)
+
+    return dims
+
+def region_specific_IPC(states, caps_list, input, basis=legendre_incremental):
+    # taskfun = legendre_incremental, input = [], variables = 1, positions = [0], delay = 1, powerlist = [1]
+    r_IPCs = []
+    total_measured_IPC = 0
+    estates = states - np.mean(states, axis=0)
+    estates /= (np.std(estates, axis=0) + 0.0000001)  # add small value to avoid divide by zero
+
+    # self.corrmat=np.cov(estates)
+    covmat = np.dot(estates.T, estates) / estates.shape[0]
+    corrmat, crank = scipy.linalg.pinv2(covmat, return_rank=True, cond=None)
+    print("Estimated rank of state covariance matrix = ", crank)
+
+    cap_attributes = ['degree', 'variables', 'powerlist', 'window_positions', 'delay']
+    for cap_dict in caps_list:
+        window = cap_dict['window']
+        delay = cap_dict['delay']
+        # labels
+        output = generate_task(taskfun=basis, input=input, variables=cap_dict['variables'],
+                               positions=cap_dict['window_positions'], delay=delay, powerlist=cap_dict['powerlist'])
+        output -= output.mean()
+        output /= output.std()
+
+        # # reservoir states
+        # samples = float(estates[delay + window - 2:, :].shape[0])
+
+        # score
+        score = cov_capacity(estates[delay + window - 2:, :], output[delay + window - 2:, :],
+                             R_inv=corrmat)
+        total_measured_IPC += score
+        tag = {}
+        for key in cap_attributes:
+            tag[key] = cap_dict[key]
+        tag['score'] = score
+        r_IPCs.append(tag)
+    return r_IPCs, total_measured_IPC
+
+def IPC_overlap(task_IPC, r_IPC):
+    inner = 0
+    total = 0
+    for i, t_cap in enumerate(task_IPC):
+        r_cap = r_IPC[i]
+        total += r_cap['score']
+        inner += r_cap['score'] * t_cap['score']
+    return inner
