@@ -1,5 +1,10 @@
+import sys
+import os
+
+root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+sys.path.insert(0, root_dir)
+
 import numpy as np
-from network import tanh_activation
 import pickle as pkl
 from utils import createNARMA10, createNARMA30, eval_candidate_lag_gridsearch_NARMA
 from datetime import date
@@ -8,18 +13,18 @@ import argparse
 EXPERIMENT_DATA = {
         'NARMA-30': {
             'DDN': {
-                'path': "../results/NARMA-30_results_23/NARMA30_old_ddn_results_n101_k4_date_2023-12-11.p"
+                'path': "results/NARMA-30_results_23/NARMA30_old_ddn_results_n101_k4_date_2023-12-11.p"
             },
             'ESN': {
-                'path': "../results/NARMA-30_results_23/NARMA30_old_bl_results_n101_k4_date_2024-03-18.p"
+                'path': "results/NARMA-30_results_23/NARMA30_old_bl_results_n101_k4_date_2024-03-18.p"
             }
         },
         'NARMA-10': {
             'ESN': {
-                'path': "../results/NARMA-10_results_23/NARMA10_old_bl_results_n51_k4_date_2024-03-18.p"
+                'path': "results/NARMA-10_results_23/NARMA10_old_bl_results_n51_k4_date_2024-03-18.p"
             },
             'DDN': {
-                'path': "../results/NARMA-10_results_23/NARMA10_old_ddn_results_n51_k4_date_2023-12-09.p"
+                'path': "results/NARMA-10_results_23/NARMA10_old_ddn_results_n51_k4_date_2023-12-09.p"
             }
         }
     }
