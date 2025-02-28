@@ -7,6 +7,8 @@ from network import DistDelayNetwork, tanh_activation
 from utils import eval_candidate_lag_gridsearch_NARMA, createNARMA30, region_specific_IPC, IPC_overlap
 import pickle as pkl
 from datetime import date
+import argparse
+import Capacities.capacities as CAP
 
 def get_random_ddn(N, sr, a):
     """
@@ -49,7 +51,16 @@ def write_result(results, sr, leak, task_p, regional_cap, overlap, net_type):
     results['net_type'].append(net_type)
 
 
-def overlap_gridsearch(results, sr_grid, leak_grid, reps, task_caps):
+def full_IPC(inputs, states, maxdel=35, maxdeg=2, maxvars=2):
+    Citer=CAP.capacity_iterator(mindel=1,mindeg=1, maxdeg=maxdeg, minvars=1,maxvars=maxvars, maxdel=maxdel, delskip=100,
+                            m_delay=False,
+                            m_windowpos=False, m_window=False, m_powerlist=False,m_variables=False,
+                            m_degrees=False, minwindow=0, maxwindow=31)
+    totalcap, allcaps, numcaps, nodes = Citer.collect(inputs, states)
+    return allcaps
+
+
+def overlap_gridsearch(results, sr_grid, leak_grid, reps, task_caps, full_ipc=False):
     total_reps = sr_grid_size * leak_grid_size * reps
     i = 0
     print('Total number of evaluations: ' + str(total_reps))
@@ -96,8 +107,13 @@ def overlap_gridsearch(results, sr_grid, leak_grid, reps, task_caps):
                 print('bl: ' + str(p_n_bl) + ', lag: ' + str(best_lag_bl))
 
                 # evaluate IPC
-                r_IPCs_ddn, _ = region_specific_IPC(ddn_states_clipped, task_caps, ipc_in_clipped_ddn)
-                r_IPCs_bl, _ = region_specific_IPC(bl_states_clipped, task_caps, ipc_in_clipped_bl)
+                if full_ipc:
+                    # Parameters the same as in paper
+                    r_IPCs_ddn = full_IPC(ipc_in_clipped_ddn, ddn_states_clipped, 60, 3)
+                    r_IPCs_bl = full_IPC(ipc_in_clipped_bl, bl_states_clipped, 60, 3)
+                else:
+                    r_IPCs_ddn, _ = region_specific_IPC(ddn_states_clipped, task_caps, ipc_in_clipped_ddn)
+                    r_IPCs_bl, _ = region_specific_IPC(bl_states_clipped, task_caps, ipc_in_clipped_bl)
 
                 # estimate overlap
                 overlap_ddn = IPC_overlap(task_caps, r_IPCs_ddn)
@@ -110,6 +126,15 @@ def overlap_gridsearch(results, sr_grid, leak_grid, reps, task_caps):
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Experiment configuration",
+                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument("-f", "--full_ipc", action='store_true', help='compute full IPC '
+                                                                      'instead of regional ipc')
+
+    args = parser.parse_args()
+    config = vars(args)
+    full_ipc = config['full_ipc']
+
     data_train = np.array(createNARMA30(4000)).reshape((2, 4000))
     data_val = np.array(createNARMA30(6000)).reshape((2, 6000))
     ipc_in = data_val[0, 400:] * 4 - 1
@@ -142,7 +167,7 @@ if __name__ == "__main__":
         'net_type': []
     }
 
-    overlap_gridsearch(results, sr_grid, leak_grid, reps, task_allcaps_30)
+    overlap_gridsearch(results, sr_grid, leak_grid, reps, task_allcaps_30, full_ipc=full_ipc)
 
     # Save overlap gridsearch
     save_name = "gridsearch_ipc_overlap_" + str(date.today()) + ".p"

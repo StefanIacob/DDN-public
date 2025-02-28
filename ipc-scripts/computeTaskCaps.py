@@ -4,7 +4,6 @@ root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, root_dir)
 import Capacities.capacities as CAP
 from utils import createNARMA10, createNARMA30
-import numpy as np
 import argparse
 from datetime import date
 import pickle as pkl
@@ -25,12 +24,11 @@ if __name__ == '__main__':
             print("Computing task caps for {}".format(task_name))
             n_tasks += 1
             func = tasks[task_name]
-            np.random.seed(42)
             inputs, outputs = func(30000)
-            np.random.seed()
             inputs_rescaled = inputs * 4 - 1
             max_del = 60
-            max_win = int(task_name[-2:]) + 2
+            max_win = int(task_name[-2:]) + 1
+            print("Max window: " + str(max_win))
             Citer = CAP.capacity_iterator(mindel=1, mindeg=1, maxdeg=2, minvars=1, maxvars=3, maxdel=max_del,
                                           delskip=100,
                                           m_delay=False,
@@ -43,6 +41,7 @@ if __name__ == '__main__':
                 'maxdel': max_del,
                 'maxdeg': 2
             }
+            print("Number of capacities computed: {}".format(len(task_allcaps)))
             results_filename = task_name + "_task_caps_" + str(date.today()) + ".p"
             try:
                 results_path = "../results/ipc-results/" + results_filename

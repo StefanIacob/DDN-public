@@ -1077,6 +1077,7 @@ def region_specific_IPC(states, caps_list, input, basis=legendre_incremental):
     return r_IPCs, total_measured_IPC
 
 def IPC_overlap(task_IPC, r_IPC):
+    # Note: the task capacity should be the same one that was used to define the region for the r_IPC
     inner = 0
     total = 0
     for i, t_cap in enumerate(task_IPC):
@@ -1084,3 +1085,4 @@ def IPC_overlap(task_IPC, r_IPC):
         total += r_cap['score']
         inner += r_cap['score'] * t_cap['score']
     return inner
+

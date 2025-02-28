@@ -3,8 +3,9 @@ This repository contains the code, data and analysis discussed in the distance-b
 paper [Exploiting Signal Propagation Delays to Match Task Memory Requirements in Reservoir Computing](https://doi.org/10.3390/biomimetics9060355).
 
 Analysis for the paper [Memory–Non-Linearity Trade-Off in Distance-Based Delay Networks](https://www.mdpi.com/2313-7673/9/12/755) 
-is based on the same evolved networks, and can be found in [IPC-Analysis.ipynb](analysis-notebooks/IPC-Analysis.ipynb). Contents of 
-this notebook are still being cleaned up and annotated.
+is based on the same evolved networks, 
+and can be found in [IPC-Analysis.ipynb](analysis-notebooks/IPC-Analysis.ipynb), with examples on how to generate 
+the paper figures. 
 
 Analysis for the initial [2022 paper on DDNs](https://link.springer.com/chapter/10.1007/978-3-031-21753-1_21) is shown 
 in the [2022-paper branch](https://github.com/StefanIacob/DDN-public/tree/2022-paper) as it requires an older 
