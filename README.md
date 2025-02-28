@@ -45,9 +45,11 @@ GUI, visually showing differences in network responses to various inputs.
 ## IPC
 Information processing capacity (IPC) is used in the
 [2024 paper](https://www.mdpi.com/2313-7673/9/12/755).
-To understand how this is computed, and how to use the [capacities tools](Capacities/capacities.py), have a look at 
-[capacitiesExample.ipynb](examples/capacitiesDDNExample.ipynb).
+To understand how this is computed, and how the [capacities tools](Capacities/capacities.py) are used for DDNs, have a 
+look at 
+[capacitiesDDNExample.ipynb](examples/capacitiesDDNExample.ipynb).
 
 Code for computing IPC can be found in [Capacities](Capacities) folder, written by prof. dr. Joni Dambre, published in 
 [Dambre, Joni, David Verstraeten, Benjamin Schrauwen, and Serge Massar. “Information Processing Capacity of Dynamical Systems.” Scientific Reports 2, no. 1 (July 19, 2012): 514.
-](https://doi.org/10.1038/srep00514)
+](https://doi.org/10.1038/srep00514). An example for how the original capacities code is used can be seen in 
+[Capacity example.ipynb](Capacities/Capacity%20example.ipynb).
