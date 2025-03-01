@@ -10,11 +10,29 @@ from utils import network_memory_capacity
 from datetime import date
 
 def strip_delays(evolved_ddn):
-    removed_delays = DistDelayNetwork(evolved_ddn.W, evolved_net.WBias, evolved_net.n_type, evolved_net.coordinates,
+    removed_delays = DistDelayNetwork(evolved_ddn.W, evolved_net.WBias, evolved_net.n_type, np.zeros_like(evolved_net.coordinates),
                                       evolved_net.decay, evolved_net.neurons_in, evolved_net.neurons_out,
-                                      evolved_net.activation_func, evolved_net.dt, evolved_net.theta_window, evolved_net.theta_y0,
+                                      evolved_net.activation_func, evolved_net.dt, 0, evolved_net.theta_y0,
                                       np.max(evolved_net.lr))
     return removed_delays
+
+def load_file(path):
+    try:
+        with open(path, "rb") as f:
+            return pkl.load(f)
+    except FileNotFoundError:
+        with open("../" + path, "rb") as f:
+            return pkl.load(f)
+
+
+def save_file(path, data):
+    try:
+        with open(path, 'wb') as f:
+            pkl.dump(data, f)
+    except FileNotFoundError:
+        with open("../" + path, "wb") as f:
+            pkl.dump(data, f)
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -27,8 +45,8 @@ if __name__ == '__main__':
 
     # Load dict
     print("loading file: " + filename)
-    with open(filename, 'rb') as f:
-        results_dict = pkl.load(f)
+
+    results_dict = load_file(filename)
 
     alphas = [10e-7, 10e-5, 10e-3]
     if "alpha grid" in results_dict.keys():
@@ -55,12 +73,10 @@ if __name__ == '__main__':
 
     # Save MC
     print("Saving mc files: ")
-    evolved_net_path = output_path + "/evolved_net.p"
+    evolved_net_path = output_path + "/evolved_net_" + str(date.today()) + ".p"
     removed_delays_net_path = output_path + "/removed_delays_" + str(date.today()) + ".p"
     print(evolved_net_path)
     print(removed_delays_net_path)
 
-    with open(evolved_net_path, 'wb') as f:
-        pkl.dump(evolved_net, f)
-    with open(removed_delays_net_path, 'wb') as f:
-        pkl.dump(removed_delays_net, f)
+    save_file(evolved_net_path, np.array(caps_evolved_net))
+    save_file(removed_delays_net_path, np.array(caps_removed_delays))
