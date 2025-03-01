@@ -1,15 +1,10 @@
 import numpy as np
 from simulator import NetworkSimulator
 from scipy.stats import norm
-import scipy
-from sklearn.linear_model import Ridge, RidgeCV
+from sklearn.linear_model import RidgeCV
 from sklearn.model_selection import KFold
-import matplotlib.pyplot as plt
-import pickle as pkl
 from reservoirpy import datasets
 from populations import GMMPopulationAdaptive
-import random
-from Capacities.capacities import legendre_incremental, generate_task, cov_capacity
 
 
 def mse(target_signal, input_signal):
@@ -94,16 +89,6 @@ def createNARMA(length=10000, system_order=10, coef=[.3, .05, 1.5, .1]):
                          coef[2] * inputs[k - (system_order - 1)] * inputs[k] + coef[3]
     return inputs, outputs
 
-def createNARMAFromInput(inputs, system_order=10, coef=[.3, .05, 1.5, .1]):
-    # inputs should be uniform in range -.5, .5
-    length = len(inputs)
-    outputs = np.zeros((length, 1))
-    for k in range(system_order - 1, length - 1):
-        outputs[k + 1] = coef[0] * outputs[k] + coef[1] * \
-                         outputs[k] * np.sum(outputs[k - (system_order - 1):k + 1]) + \
-                         coef[2] * inputs[k - (system_order - 1)] * inputs[k] + coef[3]
-    return outputs
-
 
 def createNARMA10(length=10000):
     return createNARMA(length=length, system_order=10, coef=[.3, .05, 1.5, .1])
@@ -114,7 +99,7 @@ def createNARMA30(length=10000):
 
 
 def eval_candidate_lag_gridsearch_NARMA(network, train_data, val_data, warmup=400,
-                                        lag_grid=range(0, 15), alphas=[10e-14, 10e-13, 10e-12], return_states=False):
+                                        lag_grid=range(0, 15), alphas=[10e-14, 10e-13, 10e-12]):
     assert np.all(np.array(lag_grid) >= 0), 'No negative lag allowed'
 
     train_input = train_data[0, warmup:]
@@ -135,8 +120,9 @@ def eval_candidate_lag_gridsearch_NARMA(network, train_data, val_data, warmup=40
     sim.warmup(val_input_warmup)
     val_net_act = sim.get_network_data(val_input).T
 
-    val_performance_per_lag = []
-    train_performance_per_lag = []
+    val_performance_per_lag = np.zeros_like(lag_grid, dtype='float64')
+    # TODO: replace with list to avoid weird averages
+    train_performance_per_lag = np.zeros_like(lag_grid, dtype='float64')
     model_per_lag = {}
 
     for lag in lag_grid:
@@ -158,12 +144,9 @@ def eval_candidate_lag_gridsearch_NARMA(network, train_data, val_data, warmup=40
         val_predictions = model.predict(val_net_act)
         val_performance = nrmse(val_predictions[lag:], val_labels_clipped)
 
-        val_performance_per_lag.append(val_performance)
-        train_performance_per_lag.append(train_performance)
+        val_performance_per_lag[lag] = val_performance
+        train_performance_per_lag[lag] = train_performance
         model_per_lag[lag] = model
-
-    if return_states:
-        return train_performance_per_lag, val_performance_per_lag, model_per_lag, train_net_act, val_net_act
 
     return train_performance_per_lag, val_performance_per_lag, model_per_lag
 
@@ -254,260 +237,18 @@ def create_folds(X, y, n_folds, groups):
     return folds
 
 
-def eval_candidate_signal_gen_NRMSE(network, n_sequences_unsupervised,
-                                      n_sequences_supervised,
-                                      n_sequences_validation,
-                                      n_unsupervised,
-                                      n_supervised,
-                                      n_validation,
-                                      error_margin=.1, max_it_val=500, warmup=400,
-                                      alphas=[10e-14, 10e-13, 10e-12],
-                                      seed=42,
-                                      tau_range=[12, 22],
-                                      n_range=[5, 15],
-                                      x0_range=[.5, 1.2]):
-    sim = NetworkSimulator(network)
-    random_gen = np.random.default_rng(seed=seed)
-    random_tau = np.random.uniform(tau_range[0], tau_range[1])
-    random_exp = np.random.uniform(n_range[0], n_range[1])
-
-    if n_sequences_unsupervised > 0 and type(network) is GMMPopulationAdaptive:
-        # Unsupervised: run with synaptic plasticity on different sequences
-        for i in range(n_sequences_unsupervised):
-            data = datasets.mackey_glass(n_unsupervised + warmup, tau=random_tau, n=random_exp,
-                                         x0=np.random.uniform(x0_range[0], x0_range[1]), seed=random_gen)
-            sim.warmup(data[:warmup])
-            sim.unsupervised(data[warmup:])
-            sim.reset()
-
-    # Supervised: one step ahead teacher forcing with fixed weights
-    net_act_train_across_sequences = []
-    labels_train_across_sequences = []
-    groups = []
-    for i in range(n_sequences_supervised):
-        data = datasets.mackey_glass(n_supervised + warmup, tau=random_tau, n=random_exp,
-                                     x0=np.random.uniform(x0_range[0], x0_range[1]), seed=random_gen)
-        input = data[warmup:-1]
-        labels = data[warmup + 1:]
-        sim.warmup(data[:warmup])
-        net_act = sim.get_network_data(input)
-        sim.reset()
-        net_act_train_across_sequences.append(net_act)
-        labels_train_across_sequences.append(labels)
-        groups.append(np.ones_like(input) * i)
-
-    net_act_train_across_sequences = np.concatenate(net_act_train_across_sequences, axis=1)
-    labels_train_across_sequences = np.concatenate(labels_train_across_sequences, axis=0)
-    groups = np.concatenate(groups, axis=0)
-
-    folds = create_folds(net_act_train_across_sequences.T, labels_train_across_sequences,
-                 10, groups)
-    model = RidgeCV(alphas=alphas, cv=folds)
-    model.fit(net_act_train_across_sequences.T, labels_train_across_sequences)
-
-    prediction_steps_across_sequences = []
-    energy_use_across_sequences = 0
-
-    # validation
-    for i in range(n_sequences_validation):
-        data = datasets.mackey_glass(n_validation + warmup, tau=random_tau, n=random_exp,
-                                     x0=np.random.uniform(x0_range[0], x0_range[1]), seed=random_gen)
-        start_input_val = data[warmup]
-        labels_val = data[warmup + 1:]
-        sim.warmup(data[:warmup])
-        error = 0
-        j = 0
-        feedback_in = start_input_val
-        label_variance = np.var(labels_val)
-
-        while error <= error_margin and j <= max_it_val:
-            feedback_in = np.ones((len(network.neurons_in),)) * feedback_in
-            power = network.get_current_power_bio()
-            energy_use_across_sequences += power * network.dt
-            network.update_step(feedback_in)
-            output = network.A[network.neurons_out, 0].T
-            feedback_in = model.predict(output)[0][0]
-            error = single_sample_NRSE(feedback_in, labels_val[j, 0],
-                                       label_variance)
-            j += 1
-
-        prediction_steps_across_sequences.append(j)
-
-    return np.mean(prediction_steps_across_sequences), model, energy_use_across_sequences
-
-
-def eval_candidate_signal_gen_horizon(network, n_sequences_unsupervised,
-                                      n_sequences_supervised,
-                                      n_sequences_validation,
-                                      n_unsupervised,
-                                      n_supervised,
-                                      n_validation,
-                                      error_margin=.1, max_it_val=500, warmup=400,
-                                      alphas=[10e-14, 10e-13, 10e-12],
-                                      seed=42,
-                                      tau_range=[12, 22],
-                                      n_range=[5, 15],
-                                      x0_range=[.5, 1.2],
-                                      aggregate=np.mean):
-    sim = NetworkSimulator(network)
-    random_gen = np.random.default_rng(seed=seed)
-    random_tau = np.random.uniform(tau_range[0], tau_range[1])
-    random_exp = np.random.uniform(n_range[0], n_range[1])
-
-    if n_sequences_unsupervised > 0 and type(network) is GMMPopulationAdaptive:
-        # Unsupervised: run with synaptic plasticity on different sequences
-        for i in range(n_sequences_unsupervised):
-            data = datasets.mackey_glass(n_unsupervised + warmup, tau=random_tau, n=random_exp,
-                                         x0=np.random.uniform(x0_range[0], x0_range[1]), seed=random_gen)
-            sim.warmup(data[:warmup])
-            sim.unsupervised(data[warmup:])
-            sim.reset()
-
-    # Supervised: one step ahead teacher forcing with fixed weights
-    net_act_train_across_sequences = []
-    labels_train_across_sequences = []
-    groups = []
-    for i in range(n_sequences_supervised):
-        data = datasets.mackey_glass(n_supervised + warmup, tau=random_tau, n=random_exp,
-                                     x0=np.random.uniform(x0_range[0], x0_range[1]), seed=random_gen)
-        input = data[warmup:-1]
-        labels = data[warmup + 1:]
-        sim.warmup(data[:warmup])
-        net_act = sim.get_network_data(input)
-        sim.reset()
-        net_act_train_across_sequences.append(net_act)
-        labels_train_across_sequences.append(labels)
-        groups.append(np.ones_like(input) * i)
-
-    net_act_train_across_sequences = np.concatenate(net_act_train_across_sequences, axis=1)
-    labels_train_across_sequences = np.concatenate(labels_train_across_sequences, axis=0)
-    groups = np.concatenate(groups, axis=0)
-
-    folds = create_folds(net_act_train_across_sequences.T, labels_train_across_sequences,
-                 10, groups)
-    model = RidgeCV(alphas=alphas, cv=folds)
-    model.fit(net_act_train_across_sequences.T, labels_train_across_sequences)
-
-    prediction_steps_across_sequences = []
-
-    # validation
-    for i in range(n_sequences_validation):
-        data = datasets.mackey_glass(n_validation + warmup, tau=random_tau, n=random_exp,
-                                     x0=np.random.uniform(x0_range[0], x0_range[1]), seed=random_gen)
-        start_input_val = data[warmup]
-        labels_val = data[warmup + 1:]
-        sim.warmup(data[:warmup])
-        error = 0
-        j = 0
-        feedback_in = start_input_val
-        label_variance = np.var(labels_val)
-
-        while error <= error_margin and j <= max_it_val:
-            feedback_in = np.ones((len(network.neurons_in),)) * feedback_in
-            network.update_step(feedback_in)
-            output = network.A[network.neurons_out, 0].T
-            feedback_in = model.predict(output)[0][0]
-            error = single_sample_NRSE(feedback_in, labels_val[j, 0],
-                                       label_variance)
-            j += 1
-
-        prediction_steps_across_sequences.append(j)
-
-    return aggregate(prediction_steps_across_sequences), model, 0
-
-def eval_candidate_custom_data_signal_gen(network, unsupervised_sequences, supervised_sequences, validation_sequences,
-                                          error_margin=.1, warmup=200, alphas=[10e-8, 10e-6, 10e-4, 10e-2],
-                                          seed=42, shuffle=True, warmup_overlap=False):
-    assert not (warmup_overlap and shuffle), "Cannot shuffle sequences if they need to " \
-                                             "overlap/continue between train and validation"
-    sim = NetworkSimulator(network)
-    # sim.visualize(unsupervised_sequences[0])
-    if shuffle:
-        random.shuffle(unsupervised_sequences)
-        random.shuffle(supervised_sequences)
-        random.shuffle(validation_sequences)
-
-    if len(unsupervised_sequences) > 0 and type(network) is GMMPopulationAdaptive:
-        # Unsupervised: run with synaptic plasticity on different sequences
-        for seq in unsupervised_sequences:
-            sim.warmup(seq[:warmup])
-            sim.unsupervised(seq[warmup:])
-            sim.reset()
-
-    # Supervised: one step ahead teacher forcing with fixed weights
-    net_act_train_across_sequences = []
-    labels_train_across_sequences = []
-    groups = []
-    for i, seq in enumerate(supervised_sequences):
-        input = seq[warmup:-1]
-        labels = seq[warmup + 1:]
-        sim.warmup(seq[:warmup])
-        net_act = sim.get_network_data(input)
-        sim.reset()
-        net_act_train_across_sequences.append(net_act)
-        labels_train_across_sequences.append(labels)
-        groups.append(np.ones_like(input) * i)
-
-    net_act_train_across_sequences = np.concatenate(net_act_train_across_sequences, axis=1)
-    labels_train_across_sequences = np.concatenate(labels_train_across_sequences, axis=0)
-    groups = np.concatenate(groups, axis=0)
-
-    folds = create_folds(net_act_train_across_sequences.T, labels_train_across_sequences,
-                         10, groups)
-    model = RidgeCV(alphas=alphas, cv=folds)
-    model.fit(net_act_train_across_sequences.T, labels_train_across_sequences)
-
-    prediction_steps_across_sequences = []
-
-    # validation
-    for i, seq in enumerate(validation_sequences):
-        if warmup_overlap:
-            start_input_val = seq[0]
-            labels_val = seq[1:]
-            sim.warmup(supervised_sequences[i][-warmup:])
-        else:
-            start_input_val = seq[warmup]
-            labels_val = seq[warmup + 1:]
-            sim.warmup(seq[:warmup])
-        error = 0
-        j = 0
-        feedback_in = start_input_val[0]
-        label_variance = np.var(labels_val[:, 0])
-        max_it_val = len(labels_val[:, 0]) - 1
-        predictions = []
-        # while j <= max_it_val:
-        while error <= error_margin and j <= max_it_val:
-            feedback_in = np.stack([feedback_in, labels_val[j, 1]])
-            network.update_step(feedback_in)
-            output = network.A[network.neurons_out, 0].T
-            feedback_in = model.predict(output)[0][0]
-            predictions.append(feedback_in)
-            error = single_sample_NRSE(feedback_in, labels_val[j, 0],
-                                       label_variance)
-            j += 1
-
-        prediction_steps_across_sequences.append(j)
-
-    return np.mean(prediction_steps_across_sequences), model
-
-
-def eval_candidate_signal_gen_multiple_random_sequences_adaptive_budget(network, n_sequences_unsupervised,
+def eval_candidate_signal_gen_multiple_random_sequences_adaptive(network, n_sequences_unsupervised,
                                                                  n_sequences_supervised,
                                                                  n_sequences_validation,
                                                                  n_unsupervised,
                                                                  n_supervised,
                                                                  n_validation,
-                                                                 max_it_val=500, warmup=400,
+                                                                 error_margin=.1, max_it_val=500, warmup=400,
                                                                  alphas=[10e-14, 10e-13, 10e-12],
                                                                  seed=42,
                                                                  tau_range=[12, 22],
                                                                  n_range=[5, 15],
-                                                                 x0_range=[.5, 1.2],
-                                                                 starting_budget=.01,
-                                                                 activation_cost=.005,
-                                                                 synapse_cost=.001,
-                                                                 propagation_cost=.005
-                                                                ):
+                                                                 x0_range=[.5, 1.2]):
     sim = NetworkSimulator(network)
     random_gen = np.random.default_rng(seed=seed)
     random_tau = np.random.uniform(tau_range[0], tau_range[1])
@@ -548,8 +289,6 @@ def eval_candidate_signal_gen_multiple_random_sequences_adaptive_budget(network,
     model.fit(net_act_train_across_sequences.T, labels_train_across_sequences)
 
     prediction_steps_across_sequences = []
-    leftover_budget_across_sequences = []
-    budget = starting_budget
     # validation
     for i in range(n_sequences_validation):
         data = datasets.mackey_glass(n_validation + warmup, tau=random_tau, n=random_exp,
@@ -562,527 +301,19 @@ def eval_candidate_signal_gen_multiple_random_sequences_adaptive_budget(network,
         feedback_in = start_input_val
         label_variance = np.var(labels_val)
 
-        while budget > 0 and j <= max_it_val:
+        while error <= error_margin and j <= max_it_val:
             feedback_in = np.ones((len(network.neurons_in),)) * feedback_in
-            power = network.get_current_power_bio(activation_cost, synapse_cost, propagation_cost)
-            budget -= power * network.dt
             network.update_step(feedback_in)
             output = network.A[network.neurons_out, 0].T
             feedback_in = model.predict(output)[0][0]
             error = single_sample_NRSE(feedback_in, labels_val[j, 0],
                                        label_variance)
-            budget += energy_reward(error, scale=.02)
             j += 1
 
-        leftover_budget_across_sequences.append(np.clip(budget, a_min=0, a_max=None))
         prediction_steps_across_sequences.append(j)
-
-    return np.mean(prediction_steps_across_sequences), model, np.mean(leftover_budget_across_sequences)
-
-def energy_reward(error, scale=.05, shape=60):
-    return scale * np.exp(-1 * shape * error)
+    return np.mean(prediction_steps_across_sequences), model, network
 
 def single_sample_NRSE(prediction, target, variance):
     error = mse(target, prediction)
     error = np.sqrt(error) / variance
     return error
-
-
-def eval_candidate(network, train_data, val_data, warmup=400, lag=0):
-    """
-    Evaluates NRMSE of a DistDelayNetwork
-
-    :param network: DistDelayNetwork
-        candidate
-    :param data: ndarray
-        2 by N array containing input and labels
-    :param warmup: int
-        Warmup drop
-    :return: (train NRMSE score, validation NRMSE score)
-    """
-    train_input = train_data[0, warmup:]
-    train_input_warmup = train_data[:warmup]
-    train_labels = train_data[1, warmup:]
-    sim = NetworkSimulator(network)
-
-    # run warmup
-    sim.warmup(train_input_warmup)
-
-    # generate net activity
-    train_net_act = sim.get_network_data(train_input).T
-    model = Ridge(alpha=0)
-
-    if lag > 0:
-        model.fit(train_net_act[lag:], train_labels[:-lag])
-    elif lag == 0:
-        model.fit(train_net_act, train_labels)
-    else:
-        model.fit(train_net_act[:lag], train_labels[-lag:])
-
-    train_predictions = model.predict(train_net_act)
-    if lag > 0:
-        train_performance = nrmse(train_predictions[lag:], train_labels[:-lag])
-    elif lag == 0:
-        train_performance = nrmse(train_predictions, train_labels)
-    else:
-        train_performance = nrmse(train_predictions[:lag], train_labels[-lag:])
-
-    # test readout
-    sim.reset()
-    val_input = val_data[0, :]
-    val_labels = val_data[1, warmup:]
-    val_net_act = sim.get_network_data(val_input).T
-    val_predictions = model.predict(val_net_act)
-    if lag > 0:
-        val_performance = nrmse(val_predictions[lag:], val_labels[:-lag])
-    elif lag == 0:
-        val_performance = nrmse(val_predictions, val_labels)
-    else:
-        val_performance = nrmse(val_predictions[:lag], val_labels[-lag:])
-
-    return train_performance, val_performance
-
-
-def plot_learning_curve(network, train_data, val_data, warmup=400, lag=0, ax=plt):
-    train_input = train_data[0, :]
-    train_labels = train_data[1, warmup:]
-    val_input = val_data[0, :]
-    val_labels = val_data[1, warmup:]
-    sim = NetworkSimulator(network, warmup=warmup)
-
-    # generate net activity
-    train_net_act = sim.get_network_data(train_input).T
-    sim.reset()
-    val_net_act = sim.get_network_data(val_input).T
-
-    N = train_data.shape[1]
-    n_ticks = np.array(N * np.array([0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]), dtype='int64')
-    train_perf = []
-    val_perf = []
-    for n in n_ticks:
-        # train perf
-        model = Ridge(alpha=0)
-
-        if lag > 0:
-            model.fit(train_net_act[lag:n], train_labels[:n - lag])
-        elif lag == 0:
-            model.fit(train_net_act[:n], train_labels[:n])
-        else:
-            return None
-
-        train_predictions = model.predict(train_net_act)
-        if lag > 0:
-            train_performance = nrmse(train_predictions[lag:n], train_labels[:n - lag])
-        elif lag == 0:
-            train_performance = nrmse(train_predictions[:n], train_labels[:n])
-
-        # val perf
-        val_predictions = model.predict(val_net_act)
-
-        if lag > 0:
-            val_performance = nrmse(val_predictions[lag:], val_labels[:-lag])
-        elif lag == 0:
-            val_performance = nrmse(val_predictions, val_labels)
-
-        train_perf.append(train_performance)
-        val_perf.append(val_performance)
-
-    ax.plot(n_ticks, train_perf)
-    ax.plot(n_ticks, val_perf)
-    ax.set_xlabel('N')
-    ax.set_ylabel('NRMSE')
-
-
-def plot_learning_curve_signal_gen_supervised(network, unsupervised_data, train_data, val_data, warmup=400,
-                                   alphas=[10e-14, 10e-13, 10e-12]):
-
-    sim = NetworkSimulator(network)
-
-    # Unsupervised: run with synaptic plasticity
-    warmup_unsupervised = unsupervised_data[:warmup]
-    input_unsupervised = unsupervised_data[warmup:]
-    sim.warmup(warmup_unsupervised)
-    sim.unsupervised(input_unsupervised)
-
-    # Training: train with one step ahead prediction
-    warmup_train = train_data[:warmup]
-    input_train = train_data[warmup: -1]
-    labels_train = train_data[warmup + 1:]
-    sim.warmup(warmup_train)
-    net_act_train = sim.get_network_data(input_train).T
-    sim.reset()
-
-    # label_variance = np.var(np.concatenate([unsupervised_data, train_data, val_data]))
-    # val data
-    warmup_val = val_data[:warmup]
-    input_val = val_data[warmup: -1]
-    labels_val = val_data[warmup + 1:]
-
-    N = train_data.shape[0] - warmup
-    n_ticks = np.array(N * np.array([0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]), dtype='int64')
-    train_perf = []
-    val_perf = []
-    for n in n_ticks:
-        # teacher forcing one step ahead
-        net_act_train_limited = net_act_train[:n, :]
-        labels_train_limited = labels_train[:n]
-        model = RidgeCV(alphas=alphas, cv=5)
-        model.fit(net_act_train_limited, labels_train_limited)
-
-        # Performance on train set
-        # fitness measure is amount of prediction steps within error margin
-        start_input_val = input_train[0]
-        sim.reset()
-        sim.warmup(warmup_train)
-
-        feedback_in = start_input_val
-        error = 0
-        i = 0
-        label_variance = np.var(train_data)
-        error_margin = .1
-        max_it_val = n
-        error_sum = 0
-        predictions = []
-        while error <= error_margin and i <= max_it_val:
-        # while i < max_it_val:
-            feedback_in = np.ones((len(network.neurons_in),)) * feedback_in
-            network.update_step(feedback_in)
-            output = network.A[network.neurons_out, 0].T
-            feedback_in = model.predict(output)[0][0]
-            predictions.append(feedback_in)
-            error = single_sample_NRSE(feedback_in, labels_train_limited[i, 0],
-                                       label_variance)  # np.abs(labels_val[i, 0] - feedback_in)
-            error_sum += error
-            i += 1
-
-
-        train_perf.append(i)
-        # train_perf.append(nrmse(predictions, labels_train_limited[:, 0].T))
-        sim.reset()
-
-        # Performance on validation set
-        start_input_val = input_val[0]
-        sim.warmup(warmup_val)
-
-        feedback_in = start_input_val
-        error = 0
-        j = 0
-        label_variance = np.var(val_data)
-        error_margin = .1
-        max_it_val = len(labels_val)
-        error_sum = 0
-
-        predictions = []
-        while error <= error_margin and j <= max_it_val:
-        # while j < max_it_val:
-            feedback_in = np.ones((len(network.neurons_in),)) * feedback_in
-            network.update_step(feedback_in)
-            output = network.A[network.neurons_out, 0].T
-            feedback_in = model.predict(output)[0][0]
-            predictions.append(feedback_in)
-            error = single_sample_NRSE(feedback_in, labels_val[j, 0],
-                                       label_variance)  # np.abs(labels_val[i, 0] - feedback_in)
-            j += 1
-            # error_sum += error
-        val_perf.append(j)
-        # val_perf.append(nrmse(predictions, labels_val[:, 0].T))
-        sim.reset()
-
-    plt.plot(n_ticks, train_perf)
-    plt.plot(n_ticks, val_perf)
-    plt.xlabel('N')
-    plt.ylabel('NRMSE')
-    plt.legend(['train', 'validation'])
-    plt.title('Varying number of supervised samples, N_unsupervised = ' + str(len(unsupervised_data)))
-    plt.show()
-
-def plot_learning_curve_signal_gen_unsupervised(network, unsupervised_data, train_data, val_data, warmup=400,
-                                   alphas=[10e-14, 10e-13, 10e-12]):
-
-    sim = NetworkSimulator(network)
-
-    # Unsupervised: run with synaptic plasticity
-    warmup_unsupervised = unsupervised_data[:warmup]
-    input_unsupervised = unsupervised_data[warmup:]
-    sim.warmup(warmup_unsupervised)
-
-    N = unsupervised_data.shape[0] - warmup
-    n_ticks = np.array(N * np.array([0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]), dtype='int64')
-    train_perf = []
-    val_perf = []
-    for n in n_ticks:
-        input_unsupervised_limited = input_unsupervised[:n]
-        sim.unsupervised(input_unsupervised_limited)
-
-        # Training: train with one step ahead prediction
-        warmup_train = train_data[:warmup]
-        input_train = train_data[warmup: -1]
-        labels_train = train_data[warmup + 1:]
-        sim.warmup(warmup_train)
-        net_act_train = sim.get_network_data(input_train).T
-        sim.reset()
-
-        # label_variance = np.var(np.concatenate([unsupervised_data, train_data, val_data]))
-        # val data
-        warmup_val = val_data[:warmup]
-        input_val = val_data[warmup: -1]
-        labels_val = val_data[warmup + 1:]
-
-        # teacher forcing one step ahead
-        model = RidgeCV(alphas=alphas, cv=5)
-        model.fit(net_act_train, labels_train)
-
-        # Performance on train set
-        # fitness measure is amount of prediction steps within error margin
-        start_input_val = input_train[0]
-        sim.reset()
-        sim.warmup(warmup_train)
-        feedback_in = start_input_val
-        i = 0
-        error_margin = .1
-        max_it_val = len(labels_train)
-        predictions = []
-        error = 0
-        label_variance = np.var(labels_train)
-        while error <= error_margin and i <= max_it_val:
-        # while i < max_it_val:
-            feedback_in = np.ones((len(network.neurons_in),)) * feedback_in
-            network.update_step(feedback_in)
-            output = network.A[network.neurons_out, 0].T
-            feedback_in = model.predict(output)[0][0]
-            predictions.append(feedback_in)
-            error = single_sample_NRSE(feedback_in, labels_train[i, 0],
-                                       label_variance)  # np.abs(labels_val[i, 0] - feedback_in)
-            # error_sum += error
-            i += 1
-
-
-        train_perf.append(i)
-        # train_perf.append(nrmse(predictions, labels_train[:, 0].T))
-        sim.reset()
-
-        # Performance on validation set
-        start_input_val = input_val[0]
-        sim.warmup(warmup_val)
-
-        feedback_in = start_input_val
-        error = 0
-        j = 0
-        label_variance = np.var(val_data)
-        error_margin = .1
-        max_it_val = len(labels_val)
-        error_sum = 0
-
-        predictions = []
-        while error <= error_margin and j <= max_it_val:
-        # while j < max_it_val:
-            feedback_in = np.ones((len(network.neurons_in),)) * feedback_in
-            network.update_step(feedback_in)
-            output = network.A[network.neurons_out, 0].T
-            feedback_in = model.predict(output)[0][0]
-            predictions.append(feedback_in)
-            error = single_sample_NRSE(feedback_in, labels_val[j, 0],
-                                       label_variance)  # np.abs(labels_val[i, 0] - feedback_in)
-            j += 1
-            # error_sum += error
-        # val_perf.append(nrmse(predictions, labels_val[:, 0].T))
-        val_perf.append(j)
-        sim.reset()
-
-    plt.plot(n_ticks, train_perf)
-    plt.plot(n_ticks, val_perf)
-    plt.xlabel('N')
-    plt.ylabel('Prediction steps')
-    plt.legend(['train', 'validation'])
-    plt.title('Varying number of unsupervised samples, N_supervised = ' + str(len(train_data)))
-    plt.show()
-
-def load_from_saved_ES(path, which_net=0):
-    assert which_net in [0, 1, 2], 'Parameter that selects which network should be 0, 1, or 2, for best network ever, \
-    best network from best average generation, or best network from last generation respectively'
-
-    data = pkl.load(open(path, "rb"))
-    empty_net = data['example net']
-
-
-    net_params = data['evolutionary strategy'].best.x
-    if which_net == 1:
-        parameters = data['parameters']
-        val_performance = data['validation performance']
-        val_performance = np.mean(val_performance, axis=-1)
-        average_val_per_gen = np.mean(val_performance, axis=-1)
-        best_gen = np.argmin(average_val_per_gen)
-        best_ind = np.argmin(val_performance[best_gen])
-        net_params = parameters[best_gen, best_ind]
-
-    new_net = empty_net.get_new_network_from_serialized(net_params)
-    return new_net
-
-
-def load_from_saved_ES_specific_gen(path, gen, ind=None):
-    data = pkl.load(open(path, "rb"))
-    empty_net = data['example net']
-    parameters = data['parameters']
-    val_performance = data['validation performance']
-    val_performance = np.mean(val_performance, axis=-1)
-
-    if ind is None:
-        best_ind = np.argmin(val_performance[gen])
-        ind = best_ind
-
-    net_params = parameters[gen, ind]
-    new_net = empty_net.get_new_network_from_serialized(net_params)
-    return new_net
-
-
-def genome_memory_capacity(hyperparameters, start_net, max_delay, sequence_length, z_function=None, warmup_time=400,
-                           alphas=[1, 10, 100], genome_reps=5, eval_reps=5, n_sequences_unsupervised=5,
-                           n_unsupervised=500, n_range=(10, 10), tau_range=(17,17), seed=42):
-    total_m_cap = []
-    for i in range(genome_reps):
-        net = start_net.get_new_network_from_serialized(hyperparameters)
-        bcm_sim = NetworkSimulator(net)
-        random_tau = np.random.uniform(tau_range[0], tau_range[1])
-        random_exp = np.random.uniform(n_range[0], n_range[1])
-        random_gen = np.random.default_rng(seed=seed)
-
-        if n_sequences_unsupervised > 0 and type(net) is GMMPopulationAdaptive:
-            # Unsupervised: run with synaptic plasticity on different sequences
-            print("Training BCM connections")
-            for i in range(n_sequences_unsupervised):
-                data = datasets.mackey_glass(n_unsupervised + warmup_time, tau=random_tau, n=random_exp,
-                                             x0=np.random.uniform(.5, 1.2), seed=random_gen)
-                bcm_sim.warmup(data[:warmup_time])
-                bcm_sim.unsupervised(data[warmup_time:])
-                bcm_sim.reset()
-
-        m_cap = network_memory_capacity(net, max_delay, sequence_length, z_function, warmup_time, alphas, eval_reps)
-        total_m_cap.append(m_cap)
-
-    return total_m_cap
-
-
-def network_memory_capacity(network, max_delay, sequence_length, z_function=None, warmup_time=400, alphas=[1, 10, 100], reps=5):
-    total_m_cap = []
-    for i in range(reps):
-        m_cap = memory_capacity(network, max_delay, sequence_length, z_function, warmup_time, alphas)
-        total_m_cap.append(m_cap)
-
-    return total_m_cap
-
-
-def memory_capacity(network, max_delay, sequence_length, z_function=None, warmup_time=400, alphas=[1, 10, 100]):
-    noise_input_train = np.random.uniform(size=sequence_length + warmup_time)
-    z_output_train = np.copy(noise_input_train)
-    if z_function is not None:
-        z_output_train = z_function(noise_input_train)
-
-    # Training
-    sim = NetworkSimulator(network)
-    train_net_act = sim.get_network_data(noise_input_train)
-
-    readout_list = []
-    for d in range(max_delay):
-        readout = RidgeCV(alphas=alphas, cv=5)
-        readout.fit(train_net_act[:, warmup_time:].T, z_output_train[warmup_time-d:len(z_output_train)-d])
-        readout_list.append(readout)
-
-    # Testing
-    sim.reset()
-    noise_input_test = np.random.uniform(size=sequence_length + warmup_time)
-    z_output_test = np.copy(noise_input_test)
-    if z_function is not None:
-        z_output_test = z_function(noise_input_test)
-
-    test_net_act = sim.get_network_data(noise_input_test)
-
-    m_caps = []
-
-    for d, readout in enumerate(readout_list):
-        predictions = readout.predict(test_net_act[:, warmup_time:].T)
-        MC = np.corrcoef(predictions, z_output_test[warmup_time-d:len(z_output_test)-d])[0,1]
-        m_caps.append(MC)
-
-    return m_caps
-
-def autocorrelation(data, max_lag):
-    autocorrs = [1]
-
-    for i in range(1, max_lag):
-        current_data = data[:-i, 0]
-        lagged_data = data[i:, 0]
-        autocorr = np.corrcoef(current_data, lagged_data)[0, 1]
-        autocorrs.append(autocorr)
-    return autocorrs
-
-def act_dimensionality(network_activity, variance_threshold=.95):
-    _, s, _ = np.linalg.svd(network_activity)
-    dim = 0
-    var_explained = 0
-    while var_explained < variance_threshold:
-        var_explained = np.sum(s[:dim + 1]) / np.sum(s)
-        dim += 1
-    return dim
-
-
-def genotype_dimensionality(network, net_input, measuring_reps, variance_threshold=.95, warmup=400):
-    dims = []
-    serialized_parameters = network.get_serialized_network_parameters()
-
-    for rep in range(measuring_reps):
-        # resample_network
-        network = network.get_new_evolvable_population_from_serialized(serialized_parameters)
-        sim = NetworkSimulator(network)
-        sim.warmup(net_input[:warmup])
-        net_act = sim.get_network_data(net_input[warmup:])
-        dim = act_dimensionality(net_act, variance_threshold=variance_threshold)
-        dims.append(dim)
-
-    return dims
-
-def region_specific_IPC(states, caps_list, input, basis=legendre_incremental):
-    # taskfun = legendre_incremental, input = [], variables = 1, positions = [0], delay = 1, powerlist = [1]
-    r_IPCs = []
-    total_measured_IPC = 0
-    estates = states - np.mean(states, axis=0)
-    estates /= (np.std(estates, axis=0) + 0.0000001)  # add small value to avoid divide by zero
-
-    # self.corrmat=np.cov(estates)
-    covmat = np.dot(estates.T, estates) / estates.shape[0]
-    corrmat, crank = scipy.linalg.pinv2(covmat, return_rank=True, cond=None)
-    print("Estimated rank of state covariance matrix = ", crank)
-
-    cap_attributes = ['degree', 'variables', 'powerlist', 'window_positions', 'delay']
-    for cap_dict in caps_list:
-        window = cap_dict['window']
-        delay = cap_dict['delay']
-        # labels
-        output = generate_task(taskfun=basis, input=input, variables=cap_dict['variables'],
-                               positions=cap_dict['window_positions'], delay=delay, powerlist=cap_dict['powerlist'])
-        output -= output.mean()
-        output /= output.std()
-
-        # # reservoir states
-        # samples = float(estates[delay + window - 2:, :].shape[0])
-
-        # score
-        score = cov_capacity(estates[delay + window - 2:, :], output[delay + window - 2:, :],
-                             R_inv=corrmat)
-        total_measured_IPC += score
-        tag = {}
-        for key in cap_attributes:
-            tag[key] = cap_dict[key]
-        tag['score'] = score
-        r_IPCs.append(tag)
-    return r_IPCs, total_measured_IPC
-
-def IPC_overlap(task_IPC, r_IPC):
-    # Note: the task capacity should be the same one that was used to define the region for the r_IPC
-    inner = 0
-    total = 0
-    for i, t_cap in enumerate(task_IPC):
-        r_cap = r_IPC[i]
-        total += r_cap['score']
-        inner += r_cap['score'] * t_cap['score']
-    return inner
-

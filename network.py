@@ -1,5 +1,5 @@
 import numpy as np
-from config import propagation_vel
+import config
 
 
 class DistDelayNetwork(object):
@@ -10,19 +10,46 @@ class DistDelayNetwork(object):
     # TODO: make new branch and take out n_type
     def __init__(self, weights, bias, n_type, coordinates, decay,
                  input_n=np.array([0, 1, 2]), output_n=np.array([-3, -2, -1]),
-                 activation_func=None, dt=0.0005, theta_window=None, theta_y0=None,
-                 lr=1):
-
-        self.x_range = (np.min(coordinates[:, 0]), np.max(coordinates[:, 0]))
-        self.y_range = (np.min(coordinates[:, 1]), np.max(coordinates[:, 1]))
+                 activation_func=None, dt=0.0005, buffersize=100, theta_window=None, theta_y0=None,
+                 x_range=(0, .002), y_range=(0, .004),
+                 lr=1, var_delays=True):
+        """
+        TODO: update doc
+        Constructor for distance based delay networks
+        :param weights: ndarray
+            N by N array, with N the number of neurons. This array contains the connection weights
+        :param bias: ndarray
+            N by 1 array, with N the number of neurons. This array contains the bias weights
+        :param n_type: ndarray
+            N by 1 array, with N the number of neurons. This array contains the neuron type (1 for excitatory, -1 for
+            inhibitory.
+        :param coordinates: ndarray
+            N by dim array, with N the number of neurons and dim the number of spatial dimensions. This array
+            stores the spatial coordinates (in metres) of the neurons in the network. Distance matrix is computed based
+            on this.
+        :param input_n: ndarray
+            Array with indices of input neurons
+        :param output_n: ndarray
+            Array with indices of output neurons
+        :param activation_func: function
+            Neuron activation function
+        :param dt: float
+            The physical time that one simulation step represents, in seconds.
+        :param buffersize: int
+            Size of buffer array, should be larger than buffer margin.
+        :param decay: float
+            Decay parameter for neuron input.
+        """
+        # compute continuous distance matrix
+        width = x_range[1] - x_range[0]
+        height = y_range[1] - y_range[0]
+        max_dist = np.sqrt(width ** 2 + height ** 2)
         self.spatial_dist_continuous = coordinates2distance(coordinates)
-
-        # Discretized distance matrix according to given dt
-        dist_per_step = dt * propagation_vel
-        self.propagation_vel = propagation_vel
-        self.D = np.asarray(np.ceil(self.spatial_dist_continuous / dist_per_step), dtype='int32')
-
-        longest_delay_needed = np.max(self.D) + 1
+        longest_delay_possible = buffersize * dt
+        if buffersize == 1:
+            longest_delay_possible = 1
+        longest_delay_needed = (max_dist) / config.propagation_vel
+        assert longest_delay_needed <= longest_delay_possible, 'Buffer not large enough'
 
         self.coordinates = coordinates
         self.dt = dt
@@ -30,16 +57,18 @@ class DistDelayNetwork(object):
         self.W = weights
         self.WBias = bias
         self.n_type = n_type
-        self.B = longest_delay_needed  # Buffer size
-        self.var_delays = self.B > 2
-        self.A_init = np.zeros((self.N, self.B))
+        self.buffersize = buffersize
+        # self.X_init = np.repeat(np.reshape(bias, (len(bias), 1)), self.buffersize, 1)
+        # self.X = self.X_init
+        self.A_init = np.zeros((self.N, buffersize))
         self.A = np.copy(self.A_init)
 
         self.neurons_in = input_n  # Indices for input neurons
         self.neurons_out = output_n  # Indices for output neurons
         self.decay = decay
-        self.weight_decay = 0.01
-
+        self.weight_decay = .0001
+        self.x_range = x_range
+        self.y_range = y_range
         self.lr = lr * np.array(self.W > 0, dtype='uint8')
         self.theta = np.ones((self.N,))
         self.theta_window = theta_window
@@ -57,33 +86,28 @@ class DistDelayNetwork(object):
         else:
             self.activation_func = activation_func
 
-        self.mid_dist = (np.max(self.D) - 1) / 2
-
+        if var_delays:
+            # Discretized distance matrix according to given dt
+            dist_per_step = dt * config.propagation_vel
+            self.D = np.asarray(np.ceil(self.spatial_dist_continuous / dist_per_step), dtype='int32')
+        else:
+            self.D = np.ones_like(self.spatial_dist_continuous)
+            np.fill_diagonal(self.D, 0)
         # Compute masked weight matrices
-        self.W_masked_list = [self.W]
-        self.lr_masked_list = [self.lr]
-        if not (self.W is None) and self.var_delays:
+        self.W_masked_list = []
+        self.lr_masked_list = []
+        if not (self.W is None) and var_delays:
             self.compute_masked_W()
             self.compute_masked_lr()
 
-        self.W_masked_list_init = [np.copy(partial_W) for partial_W in self.W_masked_list]
-
-        # compute connectivity matrix for use in structural plasticity
-        self.adjacency = np.absolute(self.W) > 0
+        self.var_delays = var_delays
 
     def reset_network(self):
         """
         Resets network activity to initial state.
         :return: None
         """
-        self.reset_activity()
-        self.reset_weights()
-
-    def reset_activity(self):
-        self.A = np.copy(self.A_init)
-
-    def reset_weights(self):
-        self.W_masked_list = [np.copy(partial_W) for partial_W in self.W_masked_list_init]
+        self.A = self.A_init
 
     def compute_masked_W(self):
         """
@@ -114,7 +138,7 @@ class DistDelayNetwork(object):
         if self.A.shape[1] > 1:
             self.A[:, 1:] = self.A[:, :-1]  # shifts from present to past
 
-        if self.B > 1 and self.var_delays:
+        if self.buffersize > 1 and self.var_delays:
             # Compute input to reservoir neurons on next time step taking delays into consideration
             neuron_inputs = np.copy(self.WBias)  # Add bias weights first
             for d, masked_weights in enumerate(self.W_masked_list):
@@ -157,53 +181,25 @@ class DistDelayNetwork(object):
         post_term = np.expand_dims(act_post * (act_post - self.theta), -1)
         act_pre = self.A[:, 0]
         dW = (post_term @ np.expand_dims(act_pre, 0)).T
-        dW = dW - self.weight_decay * self.W
+        dW = dW - self.weight_decay * dW
         # dW = dW / np.repeat(np.expand_dims(self.theta, -1), act_pre.shape, axis=-1).T
         # dWd = dWd * np.repeat(np.expand_dims(sigmoid_der(act_post), -1), act_pre.shape, axis=-1).T
         dW = dW.T * self.lr
         self.W += dW
 
     def delayed_BCM(self):
-        assert self.B >= 2, 'Need a non-zero delay for delayed BCM'
+        assert self.buffersize > 2, 'Need a non-zero delay for delayed BCM'
         self.update_theta()
         act_post = self.A[:, 0]
         post_term = np.expand_dims(act_post * (act_post - self.theta), -1)
-        # dW = np.zeros_like(self.W)
         for d, Wd in enumerate(self.W_masked_list):
             act_pre = self.A[:, d]
             dWd = (post_term @ np.expand_dims(act_pre, 0)).T
-            dWd = dWd - self.weight_decay * Wd
+            dWd = dWd - self.weight_decay * dWd
             # dWd = dWd / np.repeat(np.expand_dims(self.theta, -1), act_pre.shape, axis=-1).T
             # dWd = dWd * np.repeat(np.expand_dims(sigmoid_der(act_post), -1), act_pre.shape, axis=-1).T
             dWd = dWd.T * self.lr_masked_list[d]
             Wd += dWd
-            # dW += dWd
-            # Structural plasticity
-            # Wd *= self.adjacency
-
-        # self.grow(dW)
-        # self.prune()
-
-    def grow(self, dW):
-        thresholds_d_grow = 10
-        scaled_distances_grow = 1 * ((np.max(self.D) - self.D) - (thresholds_d_grow + self.mid_dist))
-        p_grow = sigmoid_activation(.5*np.abs(dW)-5) * sigmoid_activation(scaled_distances_grow)
-        rng = np.random.uniform(size=p_grow.shape)
-        grow = rng < p_grow
-        grow = grow * (self.adjacency == 0)
-        self.adjacency = self.adjacency + np.array(grow, dtype='int8')
-
-    def prune(self, thresholds_w=.1, thresholds_d=4):
-        current_weights = sum(self.W_masked_list)
-        absolute_weights = np.absolute(current_weights)
-        mid_weight = .5
-        scaled_absolute_weights = (-absolute_weights + (thresholds_w + mid_weight))
-        scaled_distances_prune = .5 * (self.D - (thresholds_d + self.mid_dist))
-        p_prune = sigmoid_activation(scaled_distances_prune) * sigmoid_activation(-scaled_absolute_weights)
-        rng = np.random.uniform(size=p_prune.shape)
-        prune = rng < p_prune
-        prune = prune * (self.adjacency > 0)
-        self.adjacency = self.adjacency * (1 - np.array(prune, dtype='int8'))
 
     def update_theta(self):
         hist_mat = np.copy(self.A[:, :self.theta_window])
@@ -221,7 +217,7 @@ class DistDelayNetwork(object):
         fraction_of_max = max_current_dist / max_possible_dist
 
         ds = max_current_dist / new_max_delay  # distance discretized step
-        new_dt = ds / propagation_vel
+        new_dt = ds / config.propagation_vel
 
         new_buffersize = int(np.ceil(new_max_delay / fraction_of_max) + 1)
 
@@ -234,36 +230,10 @@ class DistDelayNetwork(object):
         # new_dt = corresponding_dt / scaling
         new_net = DistDelayNetwork(weights=self.W, bias=self.WBias, n_type=self.n_type, coordinates=self.coordinates,
                                    decay=self.decay, input_n=self.neurons_in, output_n=self.neurons_out,
-                                   activation_func=self.activation_func, dt=new_dt, buffersize=new_buffersize)
+                                   activation_func=self.activation_func, dt=new_dt, buffersize=new_buffersize,
+                                   x_range=self.x_range, y_range=self.y_range)
         return new_net
 
-    def get_current_power_bio(self, activation_cost=.005, synapse_cost=.001, propagation_cost=.005):
-        """
-        Computes an estimate of the energy consumption/power of the network at the current timestep.
-        Depends on activation, synaptic transmissions and distances.
-
-        Args:
-            activation_cost: float
-                cost scalar for firing frequency
-            synapse_cost: float
-                cost scalar for synaptic transmissions
-            propagation_cost:
-                cost scalar for signal propagation per length unit
-
-        Returns: float
-            Current energy consumption
-        """
-
-        activation_energy_per_n = self.A[:, 0] * activation_cost
-        synapse_energy_per_n = np.matmul(np.absolute(sum(self.W_masked_list)), self.A[:, 0]) * synapse_cost
-        propagation_energy_per_n = np.matmul(self.D * self.dt * propagation_vel, self.A[:, 0]) * propagation_cost
-
-        total_activation_energy = np.sum(activation_energy_per_n)
-        total_synapse_energy = np.sum(synapse_energy_per_n)
-        total_propagation_energy = np.sum(propagation_energy_per_n)
-
-        total_energy = total_activation_energy + total_synapse_energy + total_propagation_energy
-        return total_energy
 
 # Static functions
 def coordinates2distance(coordinates):
