@@ -89,11 +89,11 @@ if __name__ == '__main__':
                 results_dict = pkl.load(f)
             evolution_data[net_type][adaptive]['results_dict'] = results_dict
 
-    tau_range = [12, 15]#results_dict['tau range'] # get tau range from any of the results dict
+    tau_range = results_dict['tau range'] # get tau range from any of the results dict
     x0_range = results_dict['start value range']
 
     # Generate test data
-    resamples = 2
+    resamples = 100
     n_test_samples = 502
     test_data_tau = []
     warmup = 400
@@ -120,7 +120,7 @@ if __name__ == '__main__':
                     print("Resample " + str(resample))
                     val, model, net = retrain_net(results_dict, tau)
                     _, t_performance = test_net(net, model, error_margin, test_data_tau[tau - 12])
-                    test_results[net_type][adaptive][tau].append(t_performance)
+                    test_results[net_type][adaptive][tau].append(np.mean(t_performance))
 
     filename = "random_tau_BCM_test_results_" + str(date.today()) + ".p"
     path = "results-2023-paper/" + filename
