@@ -7,7 +7,6 @@ class DistDelayNetwork(object):
         Class for distance based delay networks.
     """
 
-    # TODO: make new branch and take out n_type
     def __init__(self, weights, bias, n_type, coordinates, decay,
                  input_n=np.array([0, 1, 2]), output_n=np.array([-3, -2, -1]),
                  activation_func=None, dt=0.0005, theta_window=None, theta_y0=None,

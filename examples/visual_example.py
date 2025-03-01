@@ -1,3 +1,7 @@
+import sys
+import os
+root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+sys.path.insert(0, root_dir)
 from simulator import NetworkSimulator
 import pickle as pkl
 import argparse
@@ -25,8 +29,8 @@ if __name__ == '__main__':
     delay = args.delay
 
     # Load optimized DDN
-    # opt_path_ddn = "ADDN_further_experiments/Results N300 K5/2023-08-24_delay_True_bcm_False_growing_False.p"
-    # opt_path_esn = "ADDN_further_experiments/Results N300 K5/2023-08-24_delay_False_bcm_False_growing_False.p"
+    # opt_path_ddn = "ADDN-2024-papers/Results N300 K5/2023-08-24_delay_True_bcm_False_growing_False.p"
+    # opt_path_esn = "ADDN-2024-papers/Results N300 K5/2023-08-24_delay_False_bcm_False_growing_False.p"
     opt_path_ddn = "../results/NARMA-30_results_23/NARMA30_old_ddn_results_n101_k4_date_2023-12-11.p"
     opt_path_esn = "../results/NARMA-30_results_23/NARMA30_old_bl_results_n101_k4_date_2024-03-18.p"
     opt_path = opt_path_esn

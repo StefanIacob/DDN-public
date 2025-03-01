@@ -7,8 +7,12 @@ is based on the same evolved networks,
 and can be found in [IPC-Analysis.ipynb](analysis-notebooks/IPC-Analysis.ipynb), with examples on how to generate 
 the paper figures. 
 
-Analysis for the initial [2022 paper on DDNs](https://link.springer.com/chapter/10.1007/978-3-031-21753-1_21) is shown 
+## Branches
+- Analysis for the initial [2022 paper on DDNs](https://link.springer.com/chapter/10.1007/978-3-031-21753-1_21) is shown 
 in the [2022-paper branch](https://github.com/StefanIacob/DDN-public/tree/2022-paper) as it requires an older 
+version of the code.
+- Analysis for the [2023 paper on ADDNs](https://link.springer.com/chapter/https://ieeexplore.ieee.org/abstract/document/10191901) is shown 
+in the [2023-paper branch](https://github.com/StefanIacob/DDN-public/tree/2023-paper) as it requires an older 
 version of the code.
 
 ## Dependencies
@@ -26,7 +30,7 @@ the [analysis notebook](analysis-notebooks/MC-Analysis.ipynb) to generate paper 
 ### Mackey-Glass
 Optimizing DDNs, ADDNs, adaptive ESNs or baseline ESNs for Mackey-Glass tasks can be done by
 running [mg_experiment.py](mg_experiment.py) with the appropriate parameters. Results from previous optimization runs
-can be found in [ADDN_further_experiments](results/ADDN_further_experiments), also used in
+can be found in [ADDN_further_experiments](results/ADDN-2024-papers), also used in
 the [analysis notebook](analysis-notebooks/MC-Analysis.ipynb) to generate paper figures.
 
 ## Testing

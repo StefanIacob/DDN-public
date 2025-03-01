@@ -1,8 +1,13 @@
+import sys
+import os
+root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+sys.path.insert(0, root_dir)
 import pickle as pkl
 import numpy as np
 import argparse
 from network import DistDelayNetwork
 from utils import network_memory_capacity
+from datetime import date
 
 def strip_delays(evolved_ddn):
     removed_delays = DistDelayNetwork(evolved_ddn.W, evolved_net.WBias, evolved_net.n_type, evolved_net.coordinates,
@@ -30,22 +35,28 @@ if __name__ == '__main__':
         alphas = results_dict["alpha grid"]
 
     # Generate Networks
+    print("generating best network")
     ex_net = results_dict['example net']
     best_parameters = results_dict['evolutionary strategy'].best.x
     all_parameters = results_dict['parameters']
     evolved_net = ex_net.get_new_network_from_serialized(best_parameters)
+    print("generating delay-stripped network")
     removed_delays_net = strip_delays(evolved_net)
 
     # Compute MC
-    caps_evolved_net = network_memory_capacity(evolved_net, 150, 1000, None,
-                                               400, alphas, reps=20)
-    caps_removed_delays = network_memory_capacity(removed_delays_net, 150, 1000, None,
-                                                  400, alphas, reps=20)
+    max_del = 70
+    n_reps = 20
+    print("Computing MC of evolved network for " + str(n_reps) + " repetitions up to delay " + str(max_del))
+    caps_evolved_net = network_memory_capacity(evolved_net, max_del, 1000, None,
+                                               400, alphas, reps=n_reps)
+    print("Computing MC of delay-stripped network for " + str(n_reps) + " repetitions up to delay " + str(max_del))
+    caps_removed_delays = network_memory_capacity(removed_delays_net, max_del, 1000, None,
+                                                  400, alphas, reps=n_reps)
 
     # Save MC
     print("Saving mc files: ")
     evolved_net_path = output_path + "/evolved_net.p"
-    removed_delays_net_path = output_path + "/removed_delays.p"
+    removed_delays_net_path = output_path + "/removed_delays_" + str(date.today()) + ".p"
     print(evolved_net_path)
     print(removed_delays_net_path)
 
