@@ -85,17 +85,19 @@ if __name__ == '__main__':
                             action="store", help="Number of network size increases")
     parser.add_argument("-id", "--input_distance", type=float, default=0, action="store",
                         help="Distance between input neuron and centre of reservoir")
+    parser.add_argument("-sf", "--suffix", type=str, default='',
+                        action="store", help="Save file suffix")
 
     args = parser.parse_args()
     filename = args.input_filename
     output_path = args.output_filename
-
+    sf = args.suffix
     delay_step = args.delay_step
     steps = args.steps
     input_distance = args.input_distance
 
     input_distance_str = "inDist_" + str(input_distance) + "_"
-    output_path_delays_added = output_path + "/random_delays_added_" + input_distance_str + str(date.today()) + '.p'
+    output_path_delays_added = output_path + "/random_delays_added_" + input_distance_str + str(date.today()) + sf + '.p'
 
 
     # Load dict
@@ -122,8 +124,12 @@ if __name__ == '__main__':
     print("You have chosen an input distance of " + str(input_distance) + ". This corresponds to " + str(np.round(relative_var * 100, 2)) + "% of the reservoir variance.")
     # Loop through different network size scaling and compute mc
     d_max = np.max(added_delays_net.spatial_dist_continuous)
-    mc_delays_added = []
-    for i in range(steps):
+    mc_esn = memory_capacity(evolved_esn, 150, 1000, z_function=None,
+            warmup_time=400, alphas=alphas)
+
+    mc_delays_added = {1: mc_esn}
+
+    for i in range(1, steps):
         scaling = i * delay_step / (d_max/(added_delays_net.dt*propagation_vel))
         if i < 1:
             scaling = 0.0001
@@ -137,6 +143,7 @@ if __name__ == '__main__':
 
         mc = memory_capacity(increasing_delay_net, 150, 1000, z_function=None,
                         warmup_time=400, alphas=alphas)
-        mc_delays_added.append(mc)
+        new_max_delay = np.max(increasing_delay_net.D)
+        mc_delays_added[new_max_delay] = mc
 
     save_file(output_path_delays_added, mc_delays_added)
