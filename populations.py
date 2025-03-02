@@ -658,7 +658,7 @@ class GMMPopulationOld(DistDelayNetwork):
             corr_mat[i, 1, 0] = self.correlation[i]
 
         Sigma = np.matmul(np.matmul(var_mat, corr_mat), var_mat)
-
+        self.covariances = Sigma
         grid, n_type, clusters = get_gaussian_mixture_config(N - size_in, mix, mu, inhibitory, Sigma,
                                                              x_range, y_range)
 
