@@ -32,17 +32,18 @@ def esn_to_random_delay_ddn(evolved_esn, in_loc):
                                          evolved_esn.fixed_delay)
 
     elif type(evolved_esn) == GMMPopulationOld:
-        added_delays_net = GMMPopulationOld(N=evolved_esn.N, mix=mix, mu=mu, variance=var, correlation=corr,
+        added_delays_net = GMMPopulation(N=evolved_esn.N, mix=mix, mu=mu, variance=var, correlation=corr,
                                             inhibitory=evolved_esn.inhibitory,
                                             connectivity=evolved_esn.connectivity,
                                             cluster_connectivity=evolved_esn.cluster_connectivity,
                                             weight_scaling=evolved_esn.weight_scaling,
+                                            weight_mean=np.zeros_like(evolved_esn.weight_scaling),
                                             bias_scaling=evolved_esn.bias_scaling,
+                                            bias_mean=np.zeros_like(evolved_esn.bias_scaling),
                                             decay=evolved_esn.decay, size_in=evolved_esn.size_in,
                                             size_out=evolved_esn.size_out,
                                             in_loc=in_loc, act_func=evolved_esn.activation_func,
                                             autapse=evolved_esn.autapse, dt=.0005,
-                                            x_range=evolved_esn.x_range, y_range=evolved_esn.y_range,
                                             fixed_delay=evolved_esn.fixed_delay)
 
     elif type(evolved_esn) == GMMPopulationAdaptive: # Assumes unsupervised training has been done already
@@ -115,8 +116,14 @@ if __name__ == '__main__':
     evolved_esn = ex_net.get_new_network_from_serialized(best_parameters)
 
     # Make a DDN with the exact same parameters as the DDN, with random delays
-    in_loc = (-input_distance, 0)
+    mu_res_x = ex_net.mu_x[0]
+    mu_res_y = ex_net.mu_y[0]
+    in_loc = (mu_res_x-input_distance, mu_res_y)
     added_delays_net = esn_to_random_delay_ddn(evolved_esn, in_loc)
+
+    # from simulator import NetworkSimulator
+    # sim = NetworkSimulator(added_delays_net)
+    # sim.visualize(np.random.uniform(0, 0.5, 1000))
 
     covar_res = added_delays_net.covariances[0]
     var_res = np.max(np.linalg.eigvals(covar_res))
@@ -124,21 +131,38 @@ if __name__ == '__main__':
     print("You have chosen an input distance of " + str(input_distance) + ". This corresponds to " + str(np.round(relative_var * 100, 2)) + "% of the reservoir variance.")
     # Loop through different network size scaling and compute mc
     d_max = np.max(added_delays_net.spatial_dist_continuous)
+
     mc_esn = memory_capacity(evolved_esn, 150, 1000, z_function=None,
             warmup_time=400, alphas=alphas)
 
     mc_delays_added = {1: mc_esn}
+    last_max_delay = steps * delay_step
+    max_delays = np.arange(delay_step, last_max_delay, delay_step)
+    print(max_delays)
+    # Convert to network dimensions
+    dt = added_delays_net.dt
+    max_dists = max_delays * dt * propagation_vel
+    print(max_dists)
+    for i, max_delay_wanted in enumerate(max_delays):
+        scaling = max_dists[i] / d_max
 
-    for i in range(1, steps):
-        scaling = i * delay_step / (d_max/(added_delays_net.dt*propagation_vel))
-        if i < 1:
-            scaling = 0.0001
-
-        increasing_delay_net = DistDelayNetwork(evolved_esn.W, evolved_esn.WBias, evolved_esn.n_type,
-                                                added_delays_net.coordinates * scaling, evolved_esn.decay,
-                                                evolved_esn.neurons_in, evolved_esn.neurons_out,
-                                                evolved_esn.activation_func, added_delays_net.dt)
-        print("scaled to a maximum delay of: " + str(np.max(increasing_delay_net.D)))
+        correctly_scaled = False
+        while not correctly_scaled:
+            print('scaling to ' + str(max_delay_wanted))
+            increasing_delay_net = DistDelayNetwork(evolved_esn.W, evolved_esn.WBias, evolved_esn.n_type,
+                                                    added_delays_net.coordinates * scaling, evolved_esn.decay,
+                                                    evolved_esn.neurons_in, evolved_esn.neurons_out,
+                                                    evolved_esn.activation_func, added_delays_net.dt)
+            max_delay_obtained = np.max(increasing_delay_net.D)
+            if max_delay_obtained < max_delay_wanted:
+                print('scaled too small')
+                scaling *= 1.01
+            elif max_delay_obtained > max_delay_wanted:
+                print('scaled too big')
+                scaling *= 0.99
+            else:
+                correctly_scaled = True
+        print("scaled to a maximum delay of: " + str(max_delay_obtained))
 
 
         mc = memory_capacity(increasing_delay_net, 150, 1000, z_function=None,
