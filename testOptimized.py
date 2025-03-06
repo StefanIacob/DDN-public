@@ -4,6 +4,8 @@ from reservoirpy import datasets
 from simulator import NetworkSimulator
 from utils import single_sample_NRSE, eval_candidate_signal_gen_multiple_random_sequences_adaptive
 from datetime import date
+import argparse
+
 
 def retrain_net(data_dict, tau):
     best_params = data_dict['evolutionary strategy'].best.x
@@ -63,7 +65,13 @@ def test_net(network, model, error_margin, test_data):
     return y_across_sequences, prediction_steps_across_sequences
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description="Experiment configuration",
+                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument("-r", "--resamples", action="store", type=int, default=100, help="Number of resamples per test")
 
+    args = parser.parse_args()
+    config = vars(args)
+    resamples = config['resamples']
     evolution_data = {
         'ESN': {
             'fixed': {
@@ -93,7 +101,6 @@ if __name__ == '__main__':
     x0_range = results_dict['start value range']
 
     # Generate test data
-    resamples = 100
     n_test_samples = 502
     test_data_tau = []
     warmup = 400
