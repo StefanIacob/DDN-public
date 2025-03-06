@@ -311,7 +311,10 @@ def eval_candidate_signal_gen_multiple_random_sequences_adaptive(network, n_sequ
             j += 1
 
         prediction_steps_across_sequences.append(j)
-    return np.mean(prediction_steps_across_sequences), model, network
+    prediction_step = None
+    if len(prediction_steps_across_sequences) > 0:
+        prediction_step = np.mean(prediction_steps_across_sequences)
+    return prediction_step, model, network
 
 def single_sample_NRSE(prediction, target, variance):
     error = mse(target, prediction)
