@@ -11,7 +11,7 @@ class DistDelayNetworkOld(object):
     def __init__(self, weights, bias, n_type, coordinates, decay,
                  input_n=np.array([0, 1, 2]), output_n=np.array([-3, -2, -1]),
                  activation_func=None, dt=0.0005, theta_window=None, theta_y0=None,
-                 lr=1, var_delays=True, starting_budget=1):
+                 lr=None, var_delays=True, starting_budget=1):
 
         self.x_range = (np.min(coordinates[:, 0]), np.max(coordinates[:, 0]))
         self.y_range = (np.min(coordinates[:, 1]), np.max(coordinates[:, 1]))
@@ -43,8 +43,8 @@ class DistDelayNetworkOld(object):
         self.neurons_out = output_n  # Indices for output neurons
         self.decay = decay
         self.weight_decay = 0.01
-        if self.W is not None:
-            self.lr = lr * np.array(self.W > 0, dtype='uint8')
+        if lr is None:
+            self.lr = np.ones((self.N,self.N))
         else:
             self.lr = lr
         self.theta = np.ones((self.N,))
@@ -56,7 +56,7 @@ class DistDelayNetworkOld(object):
                                                      'net activity. '
 
         if self.theta_y0 is None:
-            self.theta_y0 = 1
+            self.theta_y0 = np.ones((self.N,))
 
         if activation_func is None:
             self.activation_func = tanh_activation

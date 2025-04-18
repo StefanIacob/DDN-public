@@ -1349,15 +1349,16 @@ class GMMPopulationOld(DistDelayNetworkOld):
 
         return np.array(serialized_parameters)
 
-class AdaptiveFlexiblePopulation(DistDelayNetwork):
-    def __init__(self, N, x_range, y_range, dt, in_loc, out_loc, size_in, size_out, p_dict,
+class AdaptiveFlexiblePopulation(DistDelayNetworkOld):
+    def __init__(self, N, x_range, y_range, dt, in_loc, size_in, size_out, p_dict,
                  act_func=sigmoid_activation):
         assert p_dict.keys() == {'mix', 'mu_x', 'mu_y', 'variance_x', 'variance_y', 'correlation', 'inhibitory',
                                  'connectivity', 'weight_mean', 'weight_scaling', 'bias_mean', 'bias_scaling',
                                  'decay_mean', 'decay_scaling', 'in_scaling', 'in_mean', 'in_connectivity', 'lr_mean',
-                                 'lr_scaling', 'theta0_mean', 'theta0_scaling', 'in_lr_mean', 'in_lr_scaling',
-                                 'out_lr_mean', 'out_lr_scaling', 'out_theta0', 'out_mean',
-                                 'out_scaling', 'out_connectivity'}
+                                 'lr_scaling', 'theta0_mean', 'theta0_scaling', 'in_lr_mean', 'in_lr_scaling'}
+
+                                # ,'out_lr_mean', 'out_lr_scaling', 'out_theta0', 'out_mean',
+                                #  'out_scaling', 'out_connectivity'}
 
         self.init_evo_info(p_dict)
         self.N = N
@@ -1365,7 +1366,6 @@ class AdaptiveFlexiblePopulation(DistDelayNetwork):
         self.y_range = y_range
         self.dt = dt
         self.in_loc = in_loc
-        self.out_loc = out_loc
         self.size_in = size_in
         self.size_out = size_out
 
@@ -1383,6 +1383,7 @@ class AdaptiveFlexiblePopulation(DistDelayNetwork):
         self.weight_mean = p_per_cluster(p_dict['weight_mean']['val'], self.K, 2)
         self.weight_scaling = p_per_cluster(p_dict['weight_scaling']['val'], self.K, 2)
         self.weight_lims = p_dict['weight_mean']['lims']
+        self.lr_lims = p_dict['lr_mean']['lims']
         self.res_connectivity = p_per_cluster(p_dict['connectivity']['val'], self.K, 2)
         self.in_mean = p_per_cluster(p_dict['in_mean']['val'], self.K, 1)
         self.in_scaling = p_per_cluster(p_dict['in_scaling']['val'], self.K, 1)
@@ -1395,17 +1396,18 @@ class AdaptiveFlexiblePopulation(DistDelayNetwork):
         self.decay_means = p_per_cluster(p_dict['decay_mean']['val'], self.K, 1)
         self.decay_scaling = p_per_cluster(p_dict['decay_scaling']['val'], self.K, 1)
         self.lr_mean = p_per_cluster(p_dict['lr_mean']['val'], self.K, 2)
-        self.lr_mean = p_per_cluster(p_dict['lr_scaling']['val'], self.K, 2)
+        self.lr_scaling = p_per_cluster(p_dict['lr_scaling']['val'], self.K, 2)
         self.theta0_mean = p_per_cluster(p_dict['theta0_mean']['val'], self.K, 1)
         self.theta0_scaling = p_per_cluster(p_dict['theta0_scaling']['val'], self.K, 1)
         self.in_lr_mean = p_per_cluster(p_dict['in_lr_mean']['val'], self.K, 1)
-        self.out_lr_mean = p_per_cluster(p_dict['out_lr_mean']['val'], self.K, 1)
+        self.theta_0_lims = p_dict['theta0_mean']['lims']
+        # self.out_lr_mean = p_per_cluster(p_dict['out_lr_mean']['val'], self.K, 1)
         self.in_lr_scaling = p_per_cluster(p_dict['in_lr_scaling']['val'], self.K, 1)
-        self.out_lr_scaling = p_per_cluster(p_dict['out_lr_scaling']['val'], self.K, 1)
-        self.out_theta0 = p_dict['out_theta0']['val']
-        self.out_mean = p_per_cluster(p_dict['out_mean']['val'], self.K, 1)
-        self.out_scaling = p_per_cluster(p_dict['out_scaling']['val'], self.K, 1)
-        self.out_connectivity = p_per_cluster(p_dict['out_connectivity']['val'], self.K, 1)
+        # self.out_lr_scaling = p_per_cluster(p_dict['out_lr_scaling']['val'], self.K, 1)
+        # self.out_theta0 = p_dict['out_theta0']['val']
+        # self.out_mean = p_per_cluster(p_dict['out_mean']['val'], self.K, 1)
+        # self.out_scaling = p_per_cluster(p_dict['out_scaling']['val'], self.K, 1)
+        # self.out_connectivity = p_per_cluster(p_dict['out_connectivity']['val'], self.K, 1)
 
         self.p_dict = p_dict
 
@@ -1442,11 +1444,148 @@ class AdaptiveFlexiblePopulation(DistDelayNetwork):
         self.clusters = clusters_sorted
 
         # Get weight matrix
-        W, bias, decay = self.get_cluster_based_params()
+        W, bias, decay, lr, theta_0 = self.get_cluster_based_params()
 
         super().__init__(weights=W, bias=bias, n_type=n_type_sorted, coordinates=grid_sorted, decay=decay,
                          input_n=input_index,
-                         output_n=output_index, activation_func=act_func, dt=dt)
+                         output_n=output_index, activation_func=act_func, dt=dt, lr=lr, theta_y0=theta_0)
+
+    def get_loc_covariance(self):
+        var_mat = np.zeros((self.K, 2, 2))
+        corr_mat = np.ones((self.K, 2, 2))
+        x_var = p_per_cluster(self.p_dict['variance_x']['val'], self.K, 1)
+        y_var = p_per_cluster(self.p_dict['variance_y']['val'], self.K, 1)
+        xy_corr = p_per_cluster(self.p_dict['correlation']['val'], self.K, 1)
+        for i in range(self.K):
+            var_mat[i, 0, 0] = x_var[i]
+            var_mat[i, 1, 1] = y_var[i]
+            corr_mat[i, 0, 1] = xy_corr[i]
+            corr_mat[i, 1, 0] = xy_corr[i]
+
+        Sigma = np.matmul(np.matmul(var_mat, corr_mat), var_mat)
+        return Sigma
+
+    def get_cluster_based_params(self, dist='normal'):
+        """
+        Generates network parameters dependent on cluster configuration. These are the weight matrix, bias weights,
+        decay parameters, and BCM-related parameters (learning rate and learning threshold).
+        Args:
+            dist: String. Distribution type, can be 'normal', 'uniform'
+
+        Returns:
+            W, bias, decay, lr, theta_0
+
+        """
+        assert dist in ['normal', 'uniform']
+        N = self.N
+        K = self.K
+        W = np.zeros((N, N))
+        lr = np.zeros((N, N))
+        b = np.zeros((N,))
+        decay = np.zeros((N,))
+        theta_0 = np.zeros((N,))
+
+        means = np.zeros(shape=(K + 1, K + 1))
+        scales = np.zeros(shape=(K + 1, K + 1))
+        b_means = np.zeros(shape=(K + 1,))
+        b_scales = np.zeros(shape=(K + 1,))
+        connectivity = np.zeros(shape=(K + 1, K + 1))
+        decay_means = np.zeros(shape=(K + 1,))
+        decay_scales = np.zeros(shape=(K + 1,))
+        lr_means = np.zeros(shape=(K + 1, K + 1,))
+        lr_scales = np.zeros(shape=(K + 1,K + 1,))
+        theta_0_means = np.zeros(shape=(K + 1,))
+        theta_0_scales = np.zeros(shape=(K + 1,))
+
+        # Parameter matrices organized based on cluster. Input parameters are set on the last index
+        means[:-1, :-1] = self.weight_mean
+        means[:-1, -1] = self.in_mean
+        b_means[:-1] = self.bias_mean
+        b_means[-1] = 0
+        scales[:-1, :-1] = self.weight_scaling
+        scales[:-1, -1] = self.in_scaling
+        b_scales[:-1] = self.bias_scaling
+        b_scales[-1] = 0
+        connectivity[:-1, :-1] = self.res_connectivity
+        connectivity[:-1, -1] = self.in_connectivity
+        decay_means[:-1] = self.decay_means
+        decay_means[-1] = 1
+        decay_scales[:-1] = self.decay_scaling
+        decay_scales[-1] = 1
+        lr_means[:-1, :-1] = self.lr_mean
+        lr_means[:-1, -1] = self.in_lr_mean
+        lr_scales[:-1, :-1] = self.lr_scaling
+        lr_scales[:-1, -1] = self.in_lr_scaling
+        theta_0_means[:-1] = self.theta0_mean
+        theta_0_scales[:-1] = self.theta0_scaling
+
+        for c1 in range(K + 1):
+            c_inds_1 = np.argwhere(self.clusters == c1)
+            c_size_1 = len(c_inds_1)
+            if c_size_1 > 0:
+                # single cluster parameters
+                b_mean = b_means[c1]
+                b_scale = b_scales[c1]
+                d_mean = decay_means[c1]
+                d_scale = decay_scales[c1]
+                theta_0_mean = theta_0_means[c1]
+                theta_0_scale = theta_0_scales[c1]
+                if dist == 'normal':
+                    b_vec = np.random.normal(loc=b_mean, scale=b_scale, size=(c_size_1,))
+                    a_vec = np.random.normal(loc=d_mean, scale=d_scale, size=(c_size_1,))
+                    t_vec = np.random.normal(loc=theta_0_mean, scale=theta_0_scale, size=(c_size_1,))
+                if dist == 'uniform':
+                    b_vec = np.random.uniform(low=b_mean-.5 * b_scale, high=b_mean+.5 * b_scale, size=(c_size_1,))
+                    a_vec = np.random.uniform(low=d_mean-.5 * d_scale, high=d_mean+.5 * d_scale, size=(c_size_1,))
+                    t_vec = np.random.uniform(low=theta_0_mean-.5 * theta_0_scale, high=theta_0_mean+.5 * theta_0_scale, size=(c_size_1,))
+                b_vec = np.clip(b_vec, self.bias_lims[0], self.bias_lims[1])
+                a_vec = np.clip(a_vec, 0, 1)
+                t_vec = np.clip(t_vec, self.theta_0_lims[0], self.theta_0_lims[1])
+
+                b[np.min(c_inds_1): np.max(c_inds_1) + 1] = b_vec
+                decay[np.min(c_inds_1): np.max(c_inds_1) + 1] = a_vec
+                theta_0[np.min(c_inds_1): np.max(c_inds_1) + 1] = t_vec
+
+                for c2 in range(K + 1):
+                    # Parameters related to cluster pairs/connections
+                    clip_lims_W = self.weight_lims
+                    clip_lims_lr = self.lr_lims
+                    if c2 == K:
+                        clip_lims_W = self.p_dict['in_mean']['lims']
+                        clip_lims_lr = self.p_dict['in_lr_mean']['lims']
+
+                    c_inds_2 = np.argwhere(self.clusters == c2)
+                    c_size_2 = len(c_inds_2)
+                    if c_size_2 > 0:
+                        if c1 == K:
+                            # Connections going to the input neuron
+                            c_mat = np.zeros(shape=(c_size_1, c_size_2))
+                            lr_mat = np.zeros(shape=(c_size_1, c_size_2))
+                        else:
+                            mean = means[c1, c2]
+                            scale = scales[c1, c2]
+                            lr_mean = lr_means[c1, c2]
+                            lr_scale = lr_scales[c1, c2]
+
+                            if dist == 'normal':
+                                c_mat = np.random.normal(loc=mean, scale=scale, size=(c_size_1, c_size_2))
+                                lr_mat = np.random.normal(loc=lr_mean, scale=lr_scale, size=(c_size_1, c_size_2))
+                            if dist == 'uniform':
+                                c_mat = np.random.uniform(low=mean-.5*scale, high=mean+.5*scale, size=(c_size_1, c_size_2))
+                                lr_mat = np.random.uniform(low=lr_mean-.5*lr_scale, high=lr_mean+.5*lr_scale, size=(c_size_1, c_size_2))
+                            c_mat = np.clip(c_mat, clip_lims_W[0], clip_lims_W[1])
+                            lr_mat = np.clip(lr_mat, clip_lims_lr[0], clip_lims_lr[1])
+
+                        conn = connectivity[c1, c2]
+                        connectivity_mask = np.random.uniform(0, 1, size=(c_size_1, c_size_2)) < conn
+                        c_mat *= connectivity_mask # Prune according to connectivity parameter
+                        lr_mat *= connectivity_mask # Learning rate is also pruned according to connectivity parameter,
+                        # non-zero connections are updated
+                        W[np.min(c_inds_1):np.max(c_inds_1)+1, np.min(c_inds_2):np.max(c_inds_2)+1] = c_mat
+                        lr[np.min(c_inds_1):np.max(c_inds_1)+1, np.min(c_inds_2):np.max(c_inds_2)+1] = lr_mat
+
+        return W, b, decay, lr, theta_0
+
 
     def init_evo_info(self, p_dict):
         self.total_serial_p_size = 0
@@ -1619,6 +1758,16 @@ class FlexiblePopulation(DistDelayNetworkOld):
                 self.total_serial_p_size += serial_size
 
     def get_cluster_based_params(self, dist='normal'):
+        """
+        Generates network parameters dependent on cluster configuration. These are the weight matrix, bias weights, and
+        decay parameters.
+        Args:
+            dist: String. Distribution type, can be 'normal', 'uniform'
+
+        Returns:
+            W, bias, decay
+
+        """
         assert dist in ['normal', 'uniform']
         N = self.N
         K = self.K

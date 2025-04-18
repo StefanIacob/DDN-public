@@ -1,7 +1,7 @@
 from gui import DistDelayGUI, DistDelayGUI_arm
 import numpy as np
 import matplotlib.pyplot as plt
-from populations import GMMPopulationAdaptive
+from populations import GMMPopulationAdaptive, AdaptiveFlexiblePopulation
 import network
 
 class NetworkArmSimulator(object):
@@ -137,7 +137,7 @@ class NetworkSimulator(object):
     def __init__(self, network, plasticity=True):
         self.network = network
         self.plasticity = False
-        if type(self.network) is GMMPopulationAdaptive:
+        if type(self.network) is GMMPopulationAdaptive or AdaptiveFlexiblePopulation:
             self.plasticity = plasticity
 
     def warmup(self, input_data):
