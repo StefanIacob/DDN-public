@@ -428,7 +428,7 @@ def eval_candidate_signal_gen_horizon(network, n_sequences_unsupervised,
     random_tau = np.random.uniform(tau_range[0], tau_range[1])
     random_exp = np.random.uniform(n_range[0], n_range[1])
 
-    if n_sequences_unsupervised > 0 and type(network) is GMMPopulationAdaptive:
+    if n_sequences_unsupervised > 0: # and type(network) is GMMPopulationAdaptive:
         # Unsupervised: run with synaptic plasticity on different sequences
         for i in range(n_sequences_unsupervised):
             data = datasets.mackey_glass(n_unsupervised + warmup, tau=random_tau, n=random_exp,
@@ -488,7 +488,7 @@ def eval_candidate_signal_gen_horizon(network, n_sequences_unsupervised,
 
         prediction_steps_across_sequences.append(j)
 
-    return aggregate(prediction_steps_across_sequences), model, 0
+    return aggregate(prediction_steps_across_sequences), model
 
 def eval_candidate_custom_data_signal_gen(network, unsupervised_sequences, supervised_sequences, validation_sequences,
                                           error_margin=.1, warmup=200, alphas=[10e-8, 10e-6, 10e-4, 10e-2],

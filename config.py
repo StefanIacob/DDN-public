@@ -134,7 +134,7 @@ def get_p_dict_like_p3_MG(K, x_range, y_range):
     """
     width = x_range[1] - x_range[0]
     start_location_var = width * 0.1
-    start_location_mean_var = 0
+    start_location_mean_var = width/2.5
     center = 0
     start = center - start_location_mean_var
     end = center + start_location_mean_var
@@ -226,32 +226,32 @@ def get_p_dict_like_p3_MG(K, x_range, y_range):
         'range': (0, 1),
         'lims': (0, 1)
     }, 'lr_mean': {
-        'val': .1 * np.ones(shape=(K, K)),
+        'val': .01 * np.ones(shape=(K, K)),
         'evolve': True,
         'range': (0, 1),
         'lims': (0, float('inf'))
     }, 'lr_scaling': {
-        'val': .1 * np.ones(shape=(K, K)),
+        'val': .01 * np.ones(shape=(K, K)),
         'evolve': True,
         'range': (0, 1),
         'lims': (0, float('inf'))
     }, 'theta0_mean': {
-        'val': .5 * np.ones(shape=(K,)),
+        'val': .8 * np.ones(shape=(K,)),
         'evolve': True,
         'range': (.25, 1),
         'lims': (0.25, float('inf'))  # TODO: why?
     }, 'theta0_scaling': {
-        'val': .5 * np.ones(shape=(K)),
+        'val': .1 * np.ones(shape=(K)),
         'evolve': True,
         'range': (0, 2),
         'lims': (0, float('inf'))
     }, 'in_lr_mean': {
-        'val': .1 * np.ones(shape=(K,)),
+        'val': .01 * np.ones(shape=(K,)),
         'evolve': True,
         'range': (0, 1),
         'lims': (0, float('inf'))
     }, 'in_lr_scaling': {
-        'val': .1 * np.ones(shape=(K)),
+        'val': .01 * np.ones(shape=(K)),
         'evolve': True,
         'range': (0, 1),
         'lims': (0, float('inf'))

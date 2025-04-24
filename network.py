@@ -1,5 +1,6 @@
 import numpy as np
 import config
+from scipy.special import expit
 
 
 class DistDelayNetworkOld(object):
@@ -928,7 +929,7 @@ def sigmoid_activation(neuron_input):
         N by 1 float array with neuron activation.
     """
     x = neuron_input
-    y = 1 / (1 + np.exp(-x))
+    y = 1 / (1 + expit(-x))
     return y
 
 

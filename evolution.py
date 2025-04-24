@@ -517,7 +517,7 @@ def cmaes_mackey_glass_signal_gen_adaptive(start_net, n_unsupervised,
 
     param_hist = np.zeros((max_it, pop_size, len(params)))
     val_hist = np.zeros((max_it, pop_size, eval_reps))
-    energy_hist = np.zeros((max_it, pop_size, eval_reps))
+    # energy_hist = np.zeros((max_it, pop_size, eval_reps))
     std_hist = np.zeros((max_it,))
 
     gen = 0
@@ -526,7 +526,7 @@ def cmaes_mackey_glass_signal_gen_adaptive(start_net, n_unsupervised,
     def save(net):
         data = {
             'validation performance': val_hist,
-            'energy consumption': energy_hist,
+            # 'energy consumption': energy_hist,
             'parameters': param_hist,
             'evolutionary strategy': es,
             'cma stds': std_hist,
@@ -551,7 +551,6 @@ def cmaes_mackey_glass_signal_gen_adaptive(start_net, n_unsupervised,
         file.close()
 
 
-    random_gen = np.random.default_rng(seed=42)
     while not es.stop():
         candidate_solutions = es.ask()
         for c, cand in enumerate(candidate_solutions):
@@ -565,7 +564,7 @@ def cmaes_mackey_glass_signal_gen_adaptive(start_net, n_unsupervised,
             for rep in range(eval_reps):
                 # Make sure to resample (i.e. re-generate) a network for every repetition
                 new_net = start_net.get_new_network_from_serialized(cand)
-                validation_horizon, model, energy = eval_candidate_signal_gen_horizon(new_net, n_seq_unsupervised,
+                validation_horizon, _ = eval_candidate_signal_gen_horizon(new_net, n_seq_unsupervised,
                                                                                       n_seq_supervised, n_seq_validation,
                                                                                       n_unsupervised, n_supervised,
                                                                                       n_validation, alphas=alphas,
@@ -587,7 +586,7 @@ def cmaes_mackey_glass_signal_gen_adaptive(start_net, n_unsupervised,
                 #                                                                                          propagation_cost=propagation_cost
                 #                                                                                                     )
                 val_hist[gen, c, rep] = validation_horizon
-                energy_hist[gen, c, rep] = energy
+                # energy_hist[gen, c, rep] = energy
                 # net_models[rep] = {'net': new_net, 'regression models': models_lags}
 
             # save_net(net_models, gen, c)
@@ -598,7 +597,8 @@ def cmaes_mackey_glass_signal_gen_adaptive(start_net, n_unsupervised,
         if fitness_function is None:
             fitness = aggregate(val_hist[gen, :, :], axis=-1)
         else:
-            fitness = fitness_function(val_hist[gen, :, :], energy_hist[gen, :, :])
+            # fitness = fitness_function(val_hist[gen, :, :], energy_hist[gen, :, :])
+            fitness = fitness_function(val_hist[gen, :, :])
 
         print(fitness)
 
