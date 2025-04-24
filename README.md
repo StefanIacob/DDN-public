@@ -19,6 +19,15 @@ Code for NARMA hyperparameter optimisation using CMA-ES can be seen in
 - `-s`/`--suffix`: String is added to the end of the savefile. Useful to differentiate between repetitions of the 
   same experiments
 
+Similarly, for the Mackey Glass hyperparameter optimization 
+([heterogeneity_experiment_MG.py](heterogeneity_experiment_MG.py)), in addition to the previous parameters we have
+
+- `-b`/`--bcm`: Include unsupervised local plasticity using BCM.
+- `-e`/`--error-margin`: Validation error margin for computing blind prediction horizon.
+- `-t`/`--tau_range`: Range from which random Mackey-Glass tau value is sampled during validation. To maintain a 
+  constant tau value throughout all evaluations, simply limit the range to one value.
+- `-n`/`--exponent_range`: Same as above, but for the Mackey-Glass exponent.
+
 ## Examples
 [random_ddn_example.py](examples/random_ddn_example.py) shows how to create and use a DDN or ESN, how to train a 
 and evaluate a readout layer, and how to visually simulate a network.
