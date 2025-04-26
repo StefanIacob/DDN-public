@@ -36,7 +36,7 @@ class DistDelayNetworkOld(object):
         self.W = weights
         self.WBias = bias
         self.n_type = n_type
-        self.B = longest_delay_needed  # Buffer size
+        self.B = np.max([longest_delay_needed, 1])  # Buffer size
         self.A_init = np.zeros((self.N, self.B))
         self.A = np.copy(self.A_init)
 
