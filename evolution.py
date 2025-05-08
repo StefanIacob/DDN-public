@@ -564,7 +564,7 @@ def cmaes_mackey_glass_signal_gen_adaptive(start_net, n_unsupervised,
             for rep in range(eval_reps):
                 # Make sure to resample (i.e. re-generate) a network for every repetition
                 new_net = start_net.get_new_network_from_serialized(cand)
-                validation_horizon, _ = eval_candidate_signal_gen_horizon(new_net, n_seq_unsupervised,
+                validation_horizon, _, _ = eval_candidate_signal_gen_horizon(new_net, n_seq_unsupervised,
                                                                                       n_seq_supervised, n_seq_validation,
                                                                                       n_unsupervised, n_supervised,
                                                                                       n_validation, alphas=alphas,

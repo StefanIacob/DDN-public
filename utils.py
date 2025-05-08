@@ -488,7 +488,7 @@ def eval_candidate_signal_gen_horizon(network, n_sequences_unsupervised,
 
         prediction_steps_across_sequences.append(j)
 
-    return aggregate(prediction_steps_across_sequences), model
+    return aggregate(prediction_steps_across_sequences), model, network
 
 def eval_candidate_custom_data_signal_gen(network, unsupervised_sequences, supervised_sequences, validation_sequences,
                                           error_margin=.1, warmup=200, alphas=[10e-8, 10e-6, 10e-4, 10e-2],
