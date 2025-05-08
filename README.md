@@ -31,3 +31,10 @@ Similarly, for the Mackey Glass hyperparameter optimization
 ## Examples
 [random_ddn_example.py](examples/random_ddn_example.py) shows how to create and use a DDN or ESN, how to train a 
 and evaluate a readout layer, and how to visually simulate a network.
+
+## Testing optimized networks
+To test the best hyperparameter sets from an optimization run, use [testOptimized_MG.py](testOptimized_MG.py) `path` 
+with the following parameters:
+- `-r`/`--resamples`: number of times a reservoir is sampled from the best hyperparameter set for each tau.
+- `-t`/`--testsamples`: number of time points in each test sequence.
+- `-s`/`--testsequences`: number of sequences for each network evaluation.
