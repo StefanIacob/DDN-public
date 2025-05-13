@@ -34,6 +34,8 @@ if __name__ == '__main__':
     parser.add_argument("-n", "--exponent_range", action="store",
                         help="range of mackey-glass exponent values to be used", nargs=2, type=float,
                         default=[10, 10])
+    parser.add_argument("-m", "--use_median", action="store_true",
+                        help="use median of resamlpes in evolution fitness")
 
     # Heterogeneity flags
     parser.add_argument("-dd", "--distributed_decay", action="store_true", help="Distributed decay")
@@ -60,6 +62,8 @@ if __name__ == '__main__':
     per_cluster_decay = config['cluster_decay']  # False for network wide decay parameters, True for
     # cluster-specific parameters
     suffix = config['suffix']  # Added at the end of save filename
+    use_median = config['use_median']
+
     if len(suffix) > 0:
         suffix = '_' + suffix
     net_type_name = 'BL'
@@ -104,7 +108,9 @@ if __name__ == '__main__':
         p_dict['variance_y']['evolve'] = False
         p_dict['correlation']['evolve'] = False
 
-
+    aggregate = np.mean
+    if use_median:
+        aggregate = np.median
     activation_func = sigmoid_activation
     start_net = AdaptiveFlexiblePopulation(N, x_range, y_range, dt, in_loc, size_in, size_out,
                                    p_dict, act_func=activation_func)
@@ -134,7 +140,8 @@ if __name__ == '__main__':
         'eval_reps': 5,
         'dir': dirname,
         'name': filename,
-        'alphas': alphas
+        'alphas': alphas,
+        'aggregate': aggregate
     }
     if not adaptive:
         evo_params['n_unsupervised'] = 0

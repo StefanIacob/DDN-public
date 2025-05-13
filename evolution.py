@@ -506,9 +506,7 @@ def cmaes_mackey_glass_signal_gen_adaptive(start_net, n_unsupervised,
                                            save_every=1,
                                            dir='es_results', name='cma_es_gmm_test', alphas=[10e-14, 10e-13, 10e-12],
                                            n_seq_unsupervised=5, n_seq_supervised=5, n_seq_validation=5, error_margin=.1,
-                                           tau_range=[12, 22], n_range=[5,15], fitness_function=None, activation_cost=.005,
-                                           synapse_cost=.001,
-                                           propagation_cost=.005, aggregate=np.mean):
+                                           tau_range=[12, 22], n_range=[5,15], aggregate=np.mean):
     params = start_net.get_serialized_parameters()
     opts = cma.CMAOptions()
     opts['maxiter'] = max_it
@@ -594,12 +592,7 @@ def cmaes_mackey_glass_signal_gen_adaptive(start_net, n_unsupervised,
         if (gen + 1) % save_every == 0:
             save(new_net)
 
-        if fitness_function is None:
-            fitness = aggregate(val_hist[gen, :, :], axis=-1)
-        else:
-            # fitness = fitness_function(val_hist[gen, :, :], energy_hist[gen, :, :])
-            fitness = fitness_function(val_hist[gen, :, :])
-
+        fitness = aggregate(val_hist[gen, :, :], axis=-1)
         print(fitness)
 
         es.tell(candidate_solutions, 1 / fitness)
