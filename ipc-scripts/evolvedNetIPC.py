@@ -4,24 +4,12 @@ root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.insert(0, root_dir)
 import numpy as np
 from network import DistDelayNetwork, tanh_activation
-from utils import eval_candidate_lag_gridsearch_NARMA, createNARMA30, region_specific_IPC, IPC_overlap
+from utils import eval_candidate_lag_gridsearch_NARMA, createNARMA30, region_specific_IPC, IPC_overlap, full_IPC
 import pickle as pkl
 from datetime import date
-import Capacities.capacities as CAP
 from simulator import NetworkSimulator
 
-def full_IPC(network, inputs, maxdel=35, maxdeg=2, maxvars=2, maxwin=31):
-    sim = NetworkSimulator(network)
-    ipc_in = inputs[400:]
-    ipc_in = ipc_in * 4 - 1
-    sim.warmup(inputs[:400])
-    states = sim.get_network_data(inputs[400:])
-    Citer=CAP.capacity_iterator(mindel=1,mindeg=1, maxdeg=maxdeg, minvars=1,maxvars=maxvars, maxdel=maxdel, delskip=100,
-                            m_delay=False,
-                            m_windowpos=False, m_window=False, m_powerlist=False,m_variables=False,
-                            m_degrees=False, minwindow=0, maxwindow=maxwin)
-    totalcap, allcaps, numcaps, nodes = Citer.collect(ipc_in, states.T)
-    return allcaps
+
 
 def load_pkl_dict(path):
     try:

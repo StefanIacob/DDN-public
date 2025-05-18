@@ -10,6 +10,7 @@ from reservoirpy import datasets
 from populations import GMMPopulationAdaptive
 import random
 from Capacities.capacities import legendre_incremental, generate_task, cov_capacity
+import Capacities.capacities as CAP
 
 
 def mse(target_signal, input_signal):
@@ -1086,3 +1087,17 @@ def IPC_overlap(task_IPC, r_IPC):
         inner += r_cap['score'] * t_cap['score']
     return inner
 
+def full_IPC(network, inputs, maxdel=35, maxdeg=2, maxvars=2, maxwin=31, center=0.25, scale=.25):
+    sim = NetworkSimulator(network)
+    ipc_in = inputs[400:]
+    sf = 1/scale
+    shift = sf * center
+    ipc_in = ipc_in * sf - shift
+    sim.warmup(inputs[:400])
+    states = sim.get_network_data(inputs[400:])
+    Citer=CAP.capacity_iterator(mindel=1,mindeg=1, maxdeg=maxdeg, minvars=1,maxvars=maxvars, maxdel=maxdel, delskip=100,
+                            m_delay=False,
+                            m_windowpos=False, m_window=False, m_powerlist=False,m_variables=False,
+                            m_degrees=False, minwindow=0, maxwindow=maxwin)
+    totalcap, allcaps, numcaps, nodes = Citer.collect(ipc_in, states.T)
+    return allcaps
