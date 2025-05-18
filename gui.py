@@ -53,7 +53,8 @@ class DistDelayGUI(object):
         width = x_range[1] - x_range[0]
         height = y_range[1] - y_range[0]
         window_width = 500
-
+        if width == 0:
+            width = 1
         self.spacing = window_width/width
         self.dot_size = 5
         self.use_ntypes = use_ntypes

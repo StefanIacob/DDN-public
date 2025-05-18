@@ -25,6 +25,7 @@ if __name__ == '__main__':
     parser.add_argument("-k", "--clusters", action="store", help="number of GMM clusters to be used",
                         type=int, default=5)
     parser.add_argument("-nr", "--neurons", action="store", help="number of neurons", type=int, default=300)
+    parser.add_argument("-ff", "--feedforward", action="store_true", help="Run experiment with 0 reservoir connectivity")
 
     # Evolution & Task flags
     parser.add_argument("-e", "--error-margin", action="store", default=.1,
@@ -61,6 +62,7 @@ if __name__ == '__main__':
     # decay/leak rate
     per_cluster_decay = config['cluster_decay']  # False for network wide decay parameters, True for
     # cluster-specific parameters
+    zero_conn = config['feedforward']
     suffix = config['suffix']  # Added at the end of save filename
     use_median = config['use_median']
 
@@ -107,6 +109,13 @@ if __name__ == '__main__':
         p_dict['variance_x']['evolve'] = False
         p_dict['variance_y']['evolve'] = False
         p_dict['correlation']['evolve'] = False
+
+    if zero_conn:
+        # Used to test networks with 0 internal connectivity. These are purely feedforward. In the case of DDNs, these
+        # function similar to a delay embedding.
+        suffix += '_zero_conn'
+        p_dict['connectivity']['evolve'] = False
+        p_dict['connectivity']['val'] *= 0
 
     aggregate = np.mean
     if use_median:
