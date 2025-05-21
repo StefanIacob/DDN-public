@@ -928,8 +928,10 @@ def sigmoid_activation(neuron_input):
     :return: ndarray
         N by 1 float array with neuron activation.
     """
-    x = neuron_input
-    y = 1 / (1 + expit(-x))
+    # x = neuron_input
+    # y = 1 / (1 + np.exp(-x))
+    # return y
+    y = expit(neuron_input)
     return y
 
 
