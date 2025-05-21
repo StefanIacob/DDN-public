@@ -1,3 +1,9 @@
+import sys
+import os
+
+root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+sys.path.insert(0, root_dir)
+
 import numpy as np
 import pickle as pkl
 from reservoirpy import datasets
@@ -7,6 +13,7 @@ from datetime import date
 import argparse
 from populations import GMMPopulationAdaptive, GMMPopulationOld, GMMPopulationAdaptiveOld
 from tqdm import tqdm
+
 
 def resample_net_MG_best(data_dict):
     best_params = data_dict['evolutionary strategy'].best.x
@@ -141,6 +148,6 @@ if __name__ == '__main__':
             print(t_performance)
             test_results[tau].append(t_performance)
 
-    save_path = path[:-2] + '_test_optimized.p'
+    save_path = path[:-2] + '_test_optimized_'+ str(date.today())+'.p'
     with open(save_path, 'wb') as f:
         pkl.dump(test_results, f)
