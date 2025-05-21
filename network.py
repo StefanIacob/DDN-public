@@ -328,12 +328,13 @@ class DistDelayNetworkOld(object):
         self.mid_dist = (np.max(self.D) - 1) / 2
 
         # Compute masked weight matrices
+
         self.W_masked_list = [self.W]
         self.lr_masked_list = [self.lr]
         if not (self.W is None) and var_delays:
             self.compute_masked_W()
             self.compute_masked_lr()
-
+        self.W_masked_list_init = [np.copy(partial) for partial in self.W_masked_list]
         self.var_delays = var_delays
 
         # compute connectivity matrix for use in structural plasticity
@@ -344,7 +345,14 @@ class DistDelayNetworkOld(object):
         Resets network activity to initial state.
         :return: None
         """
-        self.A = self.A_init
+        self.reset_activity()
+        self.reset_weights()
+
+    def reset_activity(self):
+        self.A = np.copy(self.A_init)
+
+    def reset_weights(self):
+        self.W_masked_list = [np.copy(partial_W) for partial_W in self.W_masked_list_init]
 
     def compute_masked_W(self):
         """

@@ -355,8 +355,9 @@ def eval_candidate_signal_gen_horizon(network, n_sequences_unsupervised,
     random_tau = np.random.uniform(tau_range[0], tau_range[1])
     random_exp = np.random.uniform(n_range[0], n_range[1])
 
-    if n_sequences_unsupervised > 0 and type(network) is GMMPopulationAdaptive:
+    if n_sequences_unsupervised > 0:
         # Unsupervised: run with synaptic plasticity on different sequences
+        print('Unsupervised learning')
         for i in range(n_sequences_unsupervised):
             data = datasets.mackey_glass(n_unsupervised + warmup, tau=random_tau, n=random_exp,
                                          x0=np.random.uniform(x0_range[0], x0_range[1]), seed=random_gen)
