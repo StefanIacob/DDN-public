@@ -34,7 +34,7 @@ can be found in [ADDN_further_experiments](results/ADDN-2024-papers), also used 
 the [analysis notebook](analysis-notebooks/MC-Analysis.ipynb) to generate paper figures.
 
 ## Testing
-Example code for how to test best optimized networks shown in [testOptimized.py](examples/testOptimized.py)
+Example code for how to test best optimized networks shown in [testOptimized.py](examples/testOptimized_NARMA.py)
 
 ## Paper Figures and data analysis
 All paper figures can be reproduced using the included notebooks:

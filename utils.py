@@ -345,9 +345,9 @@ def eval_candidate_signal_gen_horizon(network, n_sequences_unsupervised,
                                       n_validation,
                                       error_margin=.1, max_it_val=500, warmup=400,
                                       alphas=[10e-14, 10e-13, 10e-12],
-                                      seed=42,
+                                      seed=None,
                                       tau_range=[12, 22],
-                                      n_range=[5, 15],
+                                      n_range=[10, 10],
                                       x0_range=[.5, 1.2],
                                       aggregate=np.mean):
     sim = NetworkSimulator(network)
@@ -414,7 +414,11 @@ def eval_candidate_signal_gen_horizon(network, n_sequences_unsupervised,
 
         prediction_steps_across_sequences.append(j)
 
-    return aggregate(prediction_steps_across_sequences), model, 0
+    val_score = None
+    if n_sequences_validation > 0:
+        val_score = aggregate(prediction_steps_across_sequences)
+
+    return val_score, model, network
 
 def eval_candidate_custom_data_signal_gen(network, unsupervised_sequences, supervised_sequences, validation_sequences,
                                           error_margin=.1, warmup=200, alphas=[10e-8, 10e-6, 10e-4, 10e-2],
