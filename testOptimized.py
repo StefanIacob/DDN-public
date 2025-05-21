@@ -127,6 +127,7 @@ if __name__ == '__main__':
                     print("Resample " + str(resample))
                     val, model, net = retrain_net(results_dict, tau)
                     _, t_performance = test_net(net, model, error_margin, test_data_tau[tau - 12])
+                    print(t_performance)
                     test_results[net_type][adaptive][tau].append(np.mean(t_performance))
 
     filename = "random_tau_BCM_test_results_" + str(date.today()) + ".p"

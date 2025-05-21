@@ -245,9 +245,9 @@ def eval_candidate_signal_gen_multiple_random_sequences_adaptive(network, n_sequ
                                                                  n_validation,
                                                                  error_margin=.1, max_it_val=500, warmup=400,
                                                                  alphas=[10e-14, 10e-13, 10e-12],
-                                                                 seed=42,
+                                                                 seed=None,
                                                                  tau_range=[12, 22],
-                                                                 n_range=[5, 15],
+                                                                 n_range=[10, 10],
                                                                  x0_range=[.5, 1.2]):
     sim = NetworkSimulator(network)
     random_gen = np.random.default_rng(seed=seed)
