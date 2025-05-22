@@ -116,7 +116,7 @@ if __name__ == '__main__':
         p_dict['connectivity']['evolve'] = False
         p_dict['connectivity']['val'] *= 0
 
-    tau_list = [17]
+    tau_list = [17, 17, 17, 17, 17]
 
     if multi_t:
         tau_list = [13, 15, 17, 19, 21]
