@@ -601,6 +601,92 @@ def cmaes_mackey_glass_signal_gen_adaptive(start_net, n_unsupervised,
     es.result_pretty()
 
 
+def cmaes_mackey_glass_signal_gen_multi_t(start_net, n_unsupervised,
+                                           n_supervised,
+                                           n_validation, max_it, pop_size, std=0.3,
+                                           save_every=1,
+                                           dir='es_results', name='cma_es_gmm_test', alphas=[10e-14, 10e-13, 10e-12],
+                                           n_seq_unsupervised=5, n_seq_supervised=5, n_seq_validation=5, error_margin=.1,
+                                           tau_list=[13, 15, 17, 19, 21], n_range=[5,15], aggregate=np.mean):
+    assert len(tau_list) > 0
+    eval_reps = len(tau_list)
+    params = start_net.get_serialized_parameters()
+    opts = cma.CMAOptions()
+    opts['maxiter'] = max_it
+    opts['popsize'] = pop_size
+    es = cma.CMAEvolutionStrategy(params, std, opts)
+
+    param_hist = np.zeros((max_it, pop_size, len(params)))
+    val_hist = np.zeros((max_it, pop_size, eval_reps))
+    # energy_hist = np.zeros((max_it, pop_size, eval_reps))
+    std_hist = np.zeros((max_it,))
+
+    gen = 0
+    x0_range = [.5, 1.2]
+
+    def save(net):
+        data = {
+            'validation performance': val_hist,
+            # 'energy consumption': energy_hist,
+            'parameters': param_hist,
+            'evolutionary strategy': es,
+            'cma stds': std_hist,
+            'error margin': error_margin,
+            'number of sequences': {
+                    'unsupervised': n_seq_unsupervised,
+                    'supervised': n_seq_supervised,
+                    'validation': n_seq_validation,
+            },
+            'number of samples': {
+                'unsupervised': n_unsupervised,
+                'supervised': n_supervised,
+                'validation': n_validation
+            },
+            'alpha grid': alphas,
+            'tau list': tau_list,
+            'start value range': x0_range,
+            'example net': net
+        }
+        file = open(dir + '/' + name + '.p', "wb")
+        pickle.dump(data, file)
+        file.close()
+
+
+    while not es.stop():
+        candidate_solutions = es.ask()
+        for c, cand in enumerate(candidate_solutions):
+            # train_score_cand = np.zeros((nr_of_evals, len(lag_grid)))
+            # val_score_cand = np.zeros((nr_of_evals, len(lag_grid)))
+
+            param_hist[gen, c, :] = cand
+            std_hist[gen] = es.sigma
+            # net_models = {}
+
+            for rep, tau in enumerate(tau_list):
+                # Make sure to resample (i.e. re-generate) a network for every repetition
+                new_net = start_net.get_new_network_from_serialized(cand)
+                validation_horizon, _, _ = eval_candidate_signal_gen_horizon(new_net, n_seq_unsupervised,
+                                                                                      n_seq_supervised, n_seq_validation,
+                                                                                      n_unsupervised, n_supervised,
+                                                                                      n_validation, alphas=alphas,
+                                                                                      tau_range=[tau, tau], n_range=n_range,
+                                                                                      x0_range=x0_range)
+                val_hist[gen, c, rep] = validation_horizon
+
+            # save_net(net_models, gen, c)
+        # save every m iterations
+        if (gen + 1) % save_every == 0:
+            save(new_net)
+
+        fitness = aggregate(val_hist[gen, :, :], axis=-1)
+        print(fitness)
+
+        es.tell(candidate_solutions, 1 / fitness)
+        print('Gen ', gen)
+        gen += 1
+    es.result_pretty()
+
+
 
 def cmaes_evolvable(start_net, train_data, val_data, max_it, pop_size, eval_reps=5, lag_grid=range(0, 15),
                     std = 0.3, save_every = 1, dir = 'es_results', name = 'cma_es_gmm_test',

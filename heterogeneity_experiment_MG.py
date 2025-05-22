@@ -3,7 +3,7 @@ import argparse
 from populations import FlexiblePopulation, AdaptiveFlexiblePopulation
 import numpy as np
 from network import sigmoid_activation
-from evolution import cmaes_multitask_narma, cmaes_mackey_glass_signal_gen_adaptive
+from evolution import cmaes_mackey_glass_signal_gen_multi_t
 from simulator import NetworkSimulator
 from config import propagation_vel, get_p_dict_like_p3_MG
 import os
@@ -30,8 +30,7 @@ if __name__ == '__main__':
     # Evolution & Task flags
     parser.add_argument("-e", "--error-margin", action="store", default=.1,
                         help="Define the blind prediction error margin in variance")
-    parser.add_argument("-t", "--tau_range", action="store", help="range of mackey-glass tau values to be used",
-                        nargs=2, type=float, default=[12, 22])
+    parser.add_argument("-vt", "--variable_tau", action="store_true", help="use multiple tau evaluation")
     parser.add_argument("-n", "--exponent_range", action="store",
                         help="range of mackey-glass exponent values to be used", nargs=2, type=float,
                         default=[10, 10])
@@ -53,8 +52,8 @@ if __name__ == '__main__':
     delay = config['delay']  # False for ESNs, True for DDNs
     N = config['neurons']  # Nr of nodes in reservoir
     K = config['clusters']  # Nr of sub-reservoirs/clusters
+    multi_t = config['variable_tau']
     distributed_decay = config['distributed_decay']  # False for fixed decay/leak rate, True for distributed
-    t_range = config['tau_range']  # range of randomly sampled task time parameters throughout evolution
     n_range = config['exponent_range']  # range of randomly sampled task time parameters throughout evolution
     error_margin = config['error_margin']
     adaptive = config['bcm']
@@ -117,10 +116,13 @@ if __name__ == '__main__':
         p_dict['connectivity']['evolve'] = False
         p_dict['connectivity']['val'] *= 0
 
-    if t_range[0] == t_range[1]:
-        suffix+= '_fixed_tau'
-    else:
+    tau_list = [17]
+
+    if multi_t:
+        tau_list = [13, 15, 17, 19, 21]
         suffix+= '_variable_tau'
+    else:
+        suffix+= '_fixed_tau'
 
     aggregate = np.mean
     if use_median:
@@ -146,11 +148,10 @@ if __name__ == '__main__':
         'n_seq_supervised': 5,
         'n_seq_validation': 5,
         'error_margin': error_margin,
-        'tau_range': t_range,
+        'tau_list': tau_list,
         'n_range': n_range,
         'max_it': 200,
         'pop_size': 20,
-        'eval_reps': 5,
         'dir': dirname,
         'name': filename,
         'alphas': alphas,
@@ -161,5 +162,5 @@ if __name__ == '__main__':
         evo_params['n_supervised'] = 1500
         evo_params['n_seq_unsupervised'] = 0
 
-    cmaes_mackey_glass_signal_gen_adaptive(**evo_params)
+    cmaes_mackey_glass_signal_gen_multi_t(**evo_params)
 
