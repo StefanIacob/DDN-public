@@ -117,6 +117,11 @@ if __name__ == '__main__':
         p_dict['connectivity']['evolve'] = False
         p_dict['connectivity']['val'] *= 0
 
+    if t_range[0] == t_range[1]:
+        suffix+= '_fixed_tau'
+    else:
+        suffix+= '_variable_tau'
+
     aggregate = np.mean
     if use_median:
         aggregate = np.median
@@ -128,8 +133,7 @@ if __name__ == '__main__':
     if not os.path.exists(dirname):
         os.makedirs(dirname)
 
-    filename = (str(date.today()) + '_' + net_type_name + '_' + dist_decay_name + '_' +
-                per_cluster_name + suffix)
+    filename = (str(date.today()) + '_' + net_type_name + '_' + dist_decay_name + '_' + suffix)
     print('Experiment will be saved as')
     print(filename + '.pkl')
 
