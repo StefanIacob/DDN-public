@@ -7,8 +7,22 @@ from datetime import date
 import argparse
 
 
-def resample_net_MG(data_dict):
+def resample_net_MG_best(data_dict):
     best_params = data_dict['evolutionary strategy'].best.x
+    net = data_dict['example net']
+    best_net = net.get_new_network_from_serialized(best_params)
+    return best_net
+
+def resample_net_MG_worst(data_dict):
+    validation_scores = data_dict['validation performance']
+    score = np.min(validation_scores, axis=-1)
+    max_gens = np.max(score, axis=-1)
+    best_gen = np.argmax(max_gens)
+    best_pop = score[best_gen, :]
+    best_ind = np.argmax(best_pop)
+    all_params = data_dict['parameters']
+    # best_params = all_params[100, 8]
+    best_params = all_params[best_gen, best_ind]
     net = data_dict['example net']
     best_net = net.get_new_network_from_serialized(best_params)
     return best_net
@@ -70,6 +84,11 @@ def test_net_MG(network, model, error_margin, test_data):
         y_across_sequences.append(y)
     return y_across_sequences, prediction_steps_across_sequences
 
+
+def testVisualize(network, data):
+    sim = NetworkSimulator(network, False)
+    sim.visualize(data)
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Experiment configuration",
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -92,14 +111,14 @@ if __name__ == '__main__':
     with open(path, 'rb') as f:
         results_dict = pkl.load(f)
 
-    tau_range = results_dict['tau range'] # get tau range from any of the results dict
+    tau_list = results_dict['tau list'] # get tau range from any of the results dict
     x0_range = results_dict['start value range']
 
     # Generate test data
     # n_test_samples = 502
     test_data_tau = {}
     warmup = 400
-    for tau in range(tau_range[0], tau_range[1] + 1):
+    for tau in tau_list:
         test_data = []
         for seq in range(n_test_sequences):
             test_sequence = datasets.mackey_glass(n_test_samples + warmup, tau=tau,
@@ -111,11 +130,14 @@ if __name__ == '__main__':
 
     resampled_networks = []
     print("Sample networks")
+
     for resample in range(resamples):
-        best_net = resample_net_MG(results_dict)
+        # best_net = resample_net_MG_worst(results_dict)
+        # testVisualize(best_net, test_data_tau[14][0])
+        best_net = resample_net_MG_best(results_dict)
         resampled_networks.append(best_net)
 
-    for tau in range(tau_range[0], tau_range[1]+1):
+    for tau in tau_list:
         test_results[tau] = []
         print("Testing for tau = " + str(tau))
         error_margin = results_dict['error margin']
