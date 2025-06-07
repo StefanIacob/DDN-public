@@ -7,8 +7,17 @@ from datetime import date
 import argparse
 
 
-def resample_net_MG_best(data_dict):
-    best_params = data_dict['evolutionary strategy'].best.x
+def resample_net_MG_best(data_dict, maxgen=None):
+    validation_scores = data_dict['validation performance']
+    if not maxgen is None:
+        validation_scores = validation_scores[:maxgen, :, :]
+    score = np.mean(validation_scores, axis=-1)
+    max_gens = np.max(score, axis=-1)
+    best_gen = np.argmax(max_gens)
+    best_pop = score[best_gen, :]
+    best_ind = np.argmax(best_pop)
+    all_params = data_dict['parameters']
+    best_params = all_params[best_gen, best_ind]
     net = data_dict['example net']
     best_net = net.get_new_network_from_serialized(best_params)
     return best_net
@@ -96,6 +105,7 @@ if __name__ == '__main__':
     parser.add_argument("-r", "--resamples", action="store", type=int, default=100, help="Number of resamples per test")
     parser.add_argument("-t", "--testsamples", action="store", type=int, default=502, help="Test sequence length")
     parser.add_argument("-s", "--testsequences", action="store", type=int, default=5, help="Number of test sequences per network")
+    parser.add_argument("-g", "--maxgen", action="store", type=int, default=None, help="Takes best up to this generation")
 
 
     args = parser.parse_args()
@@ -104,7 +114,7 @@ if __name__ == '__main__':
     n_test_samples = config['testsamples']
     n_test_sequences = config['testsequences']
     path = config['path']
-
+    maxgen = config['maxgen']
     # Load data
     print("Loading hyperparameter optimization results from " + path)
 
@@ -134,7 +144,7 @@ if __name__ == '__main__':
     for resample in range(resamples):
         # best_net = resample_net_MG_worst(results_dict)
         # testVisualize(best_net, test_data_tau[14][0])
-        best_net = resample_net_MG_best(results_dict)
+        best_net = resample_net_MG_best(results_dict, maxgen=maxgen)
         resampled_networks.append(best_net)
 
     for tau in tau_list:
@@ -147,6 +157,6 @@ if __name__ == '__main__':
             _, t_performance = test_net_MG(net, model, error_margin, test_data_tau[tau])
             test_results[tau].append(t_performance)
 
-    save_path = path[:-2] + '_test_optimized.p'
+    save_path = path[:-2] + '_gen' + str(maxgen) + '_test_optimized.p'
     with open(save_path, 'wb') as f:
         pkl.dump(test_results, f)
