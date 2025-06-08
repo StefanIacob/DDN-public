@@ -54,7 +54,8 @@ def retrain_net_MG(best_net, data_dict, tau):
                                                           error_margin=error_margin,
                                                           alphas=alphas,
                                                           tau_range=tau_range,
-                                                          x0_range=x0_range
+                                                          x0_range=x0_range,
+                                                          n_range=[10, 10]
                                                          )
     return val, model, net
 
@@ -147,7 +148,8 @@ if __name__ == '__main__':
         best_net = resample_net_MG_best(results_dict, maxgen=maxgen)
         resampled_networks.append(best_net)
 
-    for tau in tau_list:
+    unique_tau_list = list(set(tau_list)) # only go once through each tau
+    for tau in unique_tau_list:
         test_results[tau] = []
         print("Testing for tau = " + str(tau))
         error_margin = results_dict['error margin']
