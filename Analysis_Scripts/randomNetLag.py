@@ -7,7 +7,6 @@ from network import DistDelayNetwork, tanh_activation
 from utils import eval_candidate_lag_gridsearch_NARMA, createNARMA30, region_specific_IPC, IPC_overlap
 import pickle as pkl
 from datetime import date
-import argparse
 
 def get_random_ddn(N, sr, a):
     """
@@ -83,7 +82,6 @@ def write_result(results, sr, leak, task_p, optimal_lag):
 if __name__ == "__main__":
     data_train = np.array(createNARMA30(4000)).reshape((2, 4000))
     data_val = np.array(createNARMA30(6000)).reshape((2, 6000))
-    ipc_in = data_val[0, 400:] * 4 - 1
     sr_grid_size = 12
     leak_grid_size = 12
     sr_grid = np.linspace(0.1, 2, sr_grid_size)
