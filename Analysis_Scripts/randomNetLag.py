@@ -73,10 +73,10 @@ def best_lag_gridsearch(results, sr_grid, leak_grid, reps, data_train, data_val,
                 write_result(results, sr, leak, p_n_ddn,  best_lag_ddn)
 
 def write_result(results, sr, leak, task_p, optimal_lag):
-    results['sr'] = sr
-    results['leak'] = leak
-    results['task_p'] = task_p
-    results['optimal_lag'] = optimal_lag
+    results['sr'].append(sr)
+    results['leak'].append(leak)
+    results['task_p'].append(task_p)
+    results['optimal_lag'].append(optimal_lag)
 
 
 if __name__ == "__main__":

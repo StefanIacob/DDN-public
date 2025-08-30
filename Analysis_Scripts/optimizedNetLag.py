@@ -9,24 +9,26 @@ import pickle as pkl
 from datetime import date
 
 def write_result(results, sr, leak, task_p, optimal_lag, generation):
-    results['sr'] = sr
-    results['leak'] = leak
-    results['task_p'] = task_p
-    results['optimal_lag'] = optimal_lag
-    results['generation'] = generation
+    results['sr'].append(sr)
+    results['leak'].append(leak)
+    results['task_p'].append(task_p)
+    results['optimal_lag'].append(optimal_lag)
+    results['generation'].append(generation)
 
 def evaluate_networks(example_net, params_best_i, samples, train_data, val_data, results, generation):
     for sample in range(samples):
         opt_net = example_net.get_new_network_from_serialized(params_best_i)
-        W = example_net.W
+        W = opt_net.W
         v = np.linalg.eigvals(W)
         sr = np.max(np.absolute(v))
         av_leak = np.mean(opt_net.decay)
         _, val_performance_per_lag, _ = eval_candidate_lag_gridsearch_NARMA(opt_net, train_data, val_data, alphas=[10e-7, 10e-5, 10e-3])
         optimal_lag = np.argmin(val_performance_per_lag)
+        performance = val_performance_per_lag[optimal_lag]
+
         print('optimal lag =', optimal_lag)
-        print('test performance: ', val_performance_per_lag[optimal_lag])
-        write_result(results, sr, av_leak, optimal_lag, sample, generation)
+        print('test performance: ', performance)
+        write_result(results, sr, av_leak, performance, optimal_lag, generation)
 
 if __name__ == "__main__":
     # data_train = np.array(createNARMA30(4000)).reshape((2, 4000))
