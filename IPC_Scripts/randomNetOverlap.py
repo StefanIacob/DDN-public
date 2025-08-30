@@ -42,10 +42,11 @@ def get_random_ddn(N, sr, a):
                            activation_func=tanh_activation, dt=1)
     return ddn, esn
 
-def write_result(results, sr, leak, task_p, regional_cap, overlap, net_type):
+def write_result(results, sr, leak, task_p, best_lag, regional_cap, overlap, net_type):
     results['sr'].append(sr)
     results['leak'].append(leak)
     results['task_p'].append(task_p)
+    results['optimal_lag'].append(best_lag)
     results['regional_cap'].append(regional_cap)
     results['overlap'].append(overlap)
     results['net_type'].append(net_type)
@@ -121,8 +122,8 @@ def overlap_gridsearch(results, sr_grid, leak_grid, reps, task_caps, full_ipc=Fa
 
                 i += 1
                 print(str((i / total_reps) * 100) + "% done")
-                write_result(results, sr, leak, p_n_bl, r_IPCs_bl, overlap_bl, 'ESN')
-                write_result(results, sr, leak, p_n_ddn, r_IPCs_ddn, overlap_ddn, 'DDN')
+                write_result(results, sr, leak, p_n_bl, best_lag_bl, r_IPCs_bl, overlap_bl, 'ESN')
+                write_result(results, sr, leak, p_n_ddn,  best_lag_ddn, r_IPCs_ddn, overlap_ddn, 'DDN')
 
 
 if __name__ == "__main__":
@@ -162,6 +163,7 @@ if __name__ == "__main__":
         'sr': [],
         'leak': [],
         'task_p': [],
+        'optimal_lag': [],
         'regional_cap': [],
         'overlap': [],
         'net_type': []
