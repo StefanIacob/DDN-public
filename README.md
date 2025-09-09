@@ -38,3 +38,6 @@ with the following parameters:
 - `-r`/`--resamples`: number of times a reservoir is sampled from the best hyperparameter set for each tau.
 - `-t`/`--testsamples`: number of time points in each test sequence.
 - `-s`/`--testsequences`: number of sequences for each network evaluation.
+
+## Network Configuration
+To define new network configuration, use the example parameter dictionaries generated in [config.py]
