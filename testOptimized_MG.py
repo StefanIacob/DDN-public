@@ -36,7 +36,7 @@ def resample_net_MG_worst(data_dict):
     best_net = net.get_new_network_from_serialized(best_params)
     return best_net
 
-def retrain_net_MG(best_net, data_dict, tau):
+def retrain_net_MG(best_ntet, data_dict, tau):
     best_net.reset_network()
     x0_range = data_dict['start value range']
     n_seq = data_dict['number of sequences']

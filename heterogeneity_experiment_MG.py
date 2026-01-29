@@ -116,7 +116,7 @@ if __name__ == '__main__':
         p_dict['connectivity']['evolve'] = False
         p_dict['connectivity']['val'] *= 0
 
-    tau_list = [17, 17, 17, 17, 17]
+    tau_list = [17]
 
     if multi_t:
         tau_list = [13, 15, 17, 19, 21]
@@ -150,8 +150,8 @@ if __name__ == '__main__':
         'error_margin': error_margin,
         'tau_list': tau_list,
         'n_range': n_range,
-        'max_it': 200,
-        'pop_size': 20,
+        'max_it': 2,
+        'pop_size': 3,
         'dir': dirname,
         'name': filename,
         'alphas': alphas,
