@@ -36,7 +36,7 @@ def resample_net_MG_worst(data_dict):
     best_net = net.get_new_network_from_serialized(best_params)
     return best_net
 
-def retrain_net_MG(best_ntet, data_dict, tau):
+def retrain_net_MG(best_net, data_dict, tau):
     best_net.reset_network()
     x0_range = data_dict['start value range']
     n_seq = data_dict['number of sequences']
@@ -59,6 +59,46 @@ def retrain_net_MG(best_ntet, data_dict, tau):
                                                          )
     return val, model, net
 
+
+def test_specific_net_from_evo(results_dict, gen, ind, network=None, n_test_sequences=5, n_test_samples=502, warmup=400, tau_list=None):
+    if tau_list is None:
+        tau_list = results_dict['tau list']  # get tau range from any of the results dict
+    x0_range = results_dict['start value range']
+    test_data_tau = {}
+    for tau in tau_list:
+        test_data = []
+        for seq in range(n_test_sequences):
+            test_sequence = datasets.mackey_glass(n_test_samples + warmup, tau=tau,
+                                                  x0=np.random.uniform(x0_range[0], x0_range[1]))
+            test_data.append(test_sequence)
+        test_data_tau[tau] = test_data
+
+
+    test_results = {}
+    net_to_test = network
+    if network is None:
+        start_net = results_dict['example net']
+        all_params = results_dict['parameters']
+        specific_params = all_params[gen, ind, :]
+        net_to_test = start_net.get_new_network_from_serialized(specific_params)
+
+    unique_tau_list = list(set(tau_list)) # only go once through each tau
+    for tau in unique_tau_list:
+        test_results[tau] = []
+        print("Testing for tau = " + str(tau))
+        error_margin = results_dict['error margin']
+
+
+        val, model, trained_net_to_test = retrain_net_MG(net_to_test, results_dict, tau)
+        _, t_performance = test_net_MG(trained_net_to_test, model, error_margin, test_data_tau[tau])
+        print(t_performance)
+        test_results[tau].append(t_performance)
+
+    return test_results
+
+
+
+
 def test_net_MG(network, model, error_margin, test_data):
     warmup = 400
     prediction_steps_across_sequences = []
@@ -74,9 +114,8 @@ def test_net_MG(network, model, error_margin, test_data):
         j = 0
         feedback_in = start_input_val
         label_variance = np.var(labels_val)
-        steps = 0
         y = []
-        while j <= max_it_val:
+        while j <= max_it_val and error < error_margin:
             feedback_in = np.ones((len(network.neurons_in),)) * feedback_in
             network.update_step(feedback_in)
             output = network.A[network.neurons_out, 0].T
@@ -87,10 +126,8 @@ def test_net_MG(network, model, error_margin, test_data):
             error = single_sample_NRSE(feedback_in, labels_val[j, 0],
                                        label_variance)
             j += 1
-            if error <= error_margin:
-                steps += 1
 
-        prediction_steps_across_sequences.append(steps)
+        prediction_steps_across_sequences.append(j)
         y_across_sequences.append(y)
     return y_across_sequences, prediction_steps_across_sequences
 
@@ -98,6 +135,8 @@ def test_net_MG(network, model, error_margin, test_data):
 def testVisualize(network, data):
     sim = NetworkSimulator(network, False)
     sim.visualize(data)
+
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Experiment configuration",
